@@ -1,0 +1,55 @@
+/* Importação da fonte do Google Fonts (adicione também no index.html) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f8f9fa; /* Um cinza bem claro para o fundo */
+}
+
+/* --- Componentes Customizados --- */
+
+/* Logo no Header */
+.logo-icon {
+  height: 2rem; /* 32px */
+  width: 2rem; /* 32px */
+  border-radius: 9999px;
+  background-color: #343a40; /* Cinza escuro */
+}
+
+/* Botões do Hero */
+.btn-dark-custom {
+  background-color: #212529; /* Preto/Cinza bem escuro */
+  color: #ffffff;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease-in-out;
+}
+.btn-dark-custom:hover {
+  background-color: #495057; /* Cinza um pouco mais claro */
+  color: #ffffff;
+}
+.btn-outline-custom {
+  border: 1px solid #dee2e6; /* Borda cinza clara */
+  color: #212529;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+.btn-outline-custom:hover {
+  background-color: #f8f9fa; /* Cinza bem claro */
+  color: #000000;
+}
+
+/* Estilo do Card de Produto */
+.product-card {
+  transition: box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out;
+  border: 1px solid #e9ecef; /* Borda bem sutil */
+}
+.product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+.product-card .card-img-top {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
