@@ -53,3 +53,42 @@ body {
   aspect-ratio: 1 / 1;
   object-fit: cover;
 }
+
+/* Fundo escuro (Backdrop) */
+.cart-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5); /* Preto com 50% de opacidade */
+  z-index: 1040;
+  opacity: 0;
+  visibility: hidden; /* Começa escondido */
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.cart-backdrop.is-open {
+  opacity: 1;
+  visibility: visible; /* Fica visível quando aberto */
+}
+
+/* Painel do Carrinho */
+.cart-offcanvas {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  max-width: 90vw; /* Garante que não ocupe a tela toda em celulares */
+  height: 100%;
+  background-color: white; /* FUNDO BRANCO! */
+  z-index: 1045;
+  transform: translateX(100%); /* Começa fora da tela, à direita */
+  transition: transform 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.cart-offcanvas.is-open {
+  transform: translateX(0); /* Desliza para dentro da tela quando aberto */
+}

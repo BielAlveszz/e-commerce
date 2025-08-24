@@ -1,4 +1,3 @@
-// Supondo que você tenha a imagem em src/assets/hero-beauty.jpg
 import heroImage from '../assets/hero-beauty.jpg';
 
 const Hero = () => {
