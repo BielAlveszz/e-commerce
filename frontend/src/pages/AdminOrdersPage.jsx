@@ -2,119 +2,90 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 
-const AdminDashboard = () => {
-    const [products, setProducts] = useState([]);
+const AdminOrdersPage = () => {
+    // Inicia o estado com um array vazio para evitar o erro .map()
+    const [pedidos, setPedidos] = useState([]);
     const [loading, setLoading] = useState(true);
     const { token } = useAuth();
 
-    // Função para buscar a lista de produtos da API
-    const fetchProducts = () => {
-        setLoading(true);
-        fetch('http://localhost:3001/api/produtos')
-            .then(res => res.json())
+    useEffect(() => {
+        if (token) {
+            fetch('http://localhost:3001/api/pedidos', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error('Falha ao buscar pedidos do servidor');
+                }
+                return res.json();
+            })
             .then(data => {
-                setProducts(data);
-                setLoading(false);
+                // Garante que o estado seja atualizado apenas se os dados forem um array
+                if (Array.isArray(data)) {
+                    setPedidos(data);
+                }
             })
             .catch(error => {
-                console.error("Erro ao buscar produtos:", error);
+                console.error("Erro ao buscar pedidos:", error);
+            })
+            .finally(() => {
                 setLoading(false);
             });
-    };
-
-    // Executa a busca de produtos assim que a página carrega
-    useEffect(() => {
-        fetchProducts();
-    }, []);
-
-    // Função para deletar um produto
-    const handleDelete = async (productId) => {
-        // Pede uma confirmação ao usuário antes de deletar
-        if (window.confirm('Tem certeza que deseja deletar este produto? Esta ação não pode ser desfeita.')) {
-            try {
-                const response = await fetch(`http://localhost:3001/api/produtos/${productId}`, {
-                    method: 'DELETE',
-                    headers: { 
-                        'Authorization': `Bearer ${token}` 
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Falha ao deletar o produto.');
-                }
-                
-                // Atualiza a lista de produtos na tela para remover o item deletado, sem precisar recarregar a página
-                setProducts(products.filter(p => p.id !== productId));
-                alert('Produto deletado com sucesso!');
-
-            } catch (error) {
-                console.error("Erro ao deletar produto:", error);
-                alert(error.message);
-            }
         }
-    };
+    }, [token]);
 
     if (loading) {
-        return <div className="container my-5 text-center"><h2>Carregando produtos...</h2></div>;
+        return <div className="container my-5 text-center"><p>Carregando pedidos...</p></div>;
     }
 
     return (
         <div className="container my-5">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h1>Painel do Administrador</h1>
-                <div className="d-flex gap-2">
-                    {/* Link para a página de gerenciar pedidos */}
-                    <Link to="/admin/pedidos" className="btn btn-info">
-                        Ver Pedidos
-                    </Link>
-                    {/* Link para a página de criar um novo produto */}
-                    <Link to="/admin/produtos/novo" className="btn btn-primary">
-                        Adicionar Novo Produto
-                    </Link>
-                </div>
-            </div>
+            <nav aria-label="breadcrumb">
+                <ol className="breadcrumb">
+                    <li className="breadcrumb-item"><Link to="/admin/dashboard">Admin Dashboard</Link></li>
+                    <li className="breadcrumb-item active" aria-current="page">Gerenciar Pedidos</li>
+                </ol>
+            </nav>
+            <h1 className="mb-4">Gerenciar Pedidos</h1>
 
-            <h2 className="mb-3">Gerenciar Produtos</h2>
-            <div className="card">
-                <div className="card-body">
-                    <div className="table-responsive">
-                        <table className="table table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Nome</th>
-                                    <th>Preço</th>
-                                    <th>Estoque</th>
-                                    <th className="text-end">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {products.length > 0 ? (
-                                    products.map(product => (
-                                        <tr key={product.id}>
-                                            <td>{product.id}</td>
-                                            <td>{product.nome}</td>
-                                            <td>R$ {parseFloat(product.preco).toFixed(2)}</td>
-                                            <td>{product.quantidade_estoque}</td>
-                                            <td className="text-end">
-                                                {/* Link para a página de edição do produto específico */}
-                                                <Link to={`/admin/produtos/editar/${product.id}`} className="btn btn-sm btn-secondary me-2">Editar</Link>
-                                                <button onClick={() => handleDelete(product.id)} className="btn btn-sm btn-danger">Deletar</button>
+            {pedidos.length === 0 ? (
+                <p>Nenhum pedido encontrado.</p>
+            ) : (
+                <div className="card">
+                    <div className="card-body">
+                        <div className="table-responsive">
+                            <table className="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>ID Pedido</th>
+                                        <th>Cliente</th>
+                                        <th>Email</th>
+                                        <th>Data</th>
+                                        <th>Valor Total</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pedidos.map(pedido => (
+                                        <tr key={pedido.id}>
+                                            <td>#{pedido.id}</td>
+                                            <td>{pedido.cliente_nome || 'Cliente avulso'}</td>
+                                            <td>{pedido.cliente_email || '-'}</td>
+                                            <td>{new Date(pedido.criado_em).toLocaleDateString('pt-BR')}</td>
+                                            <td>R$ {parseFloat(pedido.valor_total).toFixed(2)}</td>
+                                            <td>
+                                                <span className="badge bg-primary text-capitalize">{pedido.status.replace('_', ' ')}</span>
                                             </td>
                                         </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="5" className="text-center text-muted">Nenhum produto cadastrado.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
 
-export default AdminDashboard;
+export default AdminOrdersPage;

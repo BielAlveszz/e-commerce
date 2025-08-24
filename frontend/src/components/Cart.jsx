@@ -1,25 +1,31 @@
+import React from 'react';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 import { XLg, PlusLg, DashLg } from 'react-bootstrap-icons';
 
 const Cart = () => {
   const { isCartOpen, setIsCartOpen, cartItems, updateQuantity, removeFromCart, checkout } = useCart();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
-  const total = cartItems.reduce((sum, item) => sum + (item.preco * item.quantity), 0);
+  const total = cartItems.reduce((sum, item) => sum + (item.preco * (item.quantity || 1)), 0);
+
+  const handleCheckoutClick = () => {
+    if (isAuthenticated) {
+      checkout(); // Se está logado, finaliza a compra.
+    } else {
+      setIsCartOpen(false); // Fecha o carrinho
+      navigate('/login'); // E leva o usuário para a página de login.
+    }
+  };
+
+  if (!isCartOpen) return null;
 
   return (
     <>
-      {/* O fundo escuro agora usa nossas classes CSS customizadas */}
-      <div 
-        className={`cart-backdrop ${isCartOpen ? 'is-open' : ''}`}
-        onClick={() => setIsCartOpen(false)} 
-      ></div>
-      
-      {/* O painel do carrinho também usa as classes customizadas */}
-      <div 
-        className={`cart-offcanvas ${isCartOpen ? 'is-open' : ''}`}
-        // Este comando crucial impede que o clique no carrinho feche o modal
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="cart-backdrop is-open" onClick={() => setIsCartOpen(false)}></div>
+      <div className="cart-offcanvas is-open" onClick={(e) => e.stopPropagation()}>
         <div className="offcanvas-header border-bottom">
           <h5 className="offcanvas-title">Seu Carrinho</h5>
           <button type="button" className="btn-close" onClick={() => setIsCartOpen(false)}></button>
@@ -34,12 +40,7 @@ const Cart = () => {
               <div className="flex-grow-1 p-3" style={{ overflowY: 'auto' }}>
                 {cartItems.map(item => (
                   <div key={item.id} className="d-flex align-items-center gap-3 mb-4">
-                    <img 
-                      src={`/images/${item.url_imagem}`} 
-                      alt={item.nome} 
-                      style={{width: '64px', height: '64px', objectFit: 'cover'}} 
-                      className="rounded" 
-                    />
+                    <img src={`/images/${item.url_imagem}`} alt={item.nome} style={{width: '64px', height: '64px', objectFit: 'cover'}} className="rounded" />
                     <div className="flex-grow-1">
                       <p className="fw-semibold mb-1">{item.nome}</p>
                       <p className="text-muted small">R$ {parseFloat(item.preco).toFixed(2)}</p>
@@ -59,8 +60,15 @@ const Cart = () => {
                   <span>R$ {total.toFixed(2)}</span>
                 </div>
                 <div className="d-grid mt-3">
-                  <button onClick={checkout} className="btn btn-dark btn-lg">Finalizar Compra</button>
+                  <button onClick={handleCheckoutClick} className="btn btn-dark btn-lg">
+                    {isAuthenticated ? 'Finalizar Compra' : 'Fazer Login para Continuar'}
+                  </button>
                 </div>
+                {!isAuthenticated && (
+                    <div className="text-center mt-2">
+                        <small>Para finalizar, você precisa <Link to="/cadastro" onClick={() => setIsCartOpen(false)}>criar uma conta</Link> ou fazer o login.</small>
+                    </div>
+                )}
               </div>
             </>
           )}

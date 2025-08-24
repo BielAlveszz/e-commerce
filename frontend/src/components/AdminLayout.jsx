@@ -17,7 +17,7 @@ const AdminLayout = () => {
         </div>
       </nav>
       
-      {/* O Outlet renderizará o componente da rota filha aqui (Dashboard, Pedidos, etc.) */}
+      {/* O Outlet renderizará o componente da rota filha aqui */}
       <Outlet />
     </div>
   );
