@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from 'react-router-dom';
 import Hero from "../components/Hero";
 import ProductCard from "../components/ProductCard";
+import CategoryFilter from "../components/CategoryFilter";
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -12,38 +13,54 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const query = useQuery();
   const searchTerm = query.get('search');
+  const categoryTerm = query.get('categoria');
+  const subCategoryTerm = query.get('subcategoria');
 
   useEffect(() => {
     setLoading(true);
-    const apiUrl = searchTerm 
-      ? `http://localhost:3001/api/produtos?search=${searchTerm}`
-      : 'http://localhost:3001/api/produtos';
+    const params = new URLSearchParams();
+    if (searchTerm) params.append('search', searchTerm);
+    if (categoryTerm) params.append('categoria', categoryTerm);
+    if (subCategoryTerm) params.append('subcategoria', subCategoryTerm);
+    
+    // Para a loja, podemos pedir mais itens por página, por exemplo, 20.
+    params.append('limit', '20'); 
+
+    const apiUrl = `http://localhost:3001/api/produtos?${params.toString()}`;
 
     fetch(apiUrl)
       .then(response => response.json())
       .then(data => {
-        setProducts(data);
-        setLoading(false);
+        // A CORREÇÃO ESTÁ AQUI:
+        // Agora, em vez de usar 'data' diretamente, nós pegamos 'data.products'.
+        setProducts(data.products || []); // Garante que products seja sempre um array
       })
-      .catch(error => {
-        console.error("Erro ao buscar produtos:", error);
-        setLoading(false);
-      });
-  }, [searchTerm]);
+      .catch(error => console.error("Erro ao buscar produtos:", error))
+      .finally(() => setLoading(false));
+      
+  }, [searchTerm, categoryTerm, subCategoryTerm]);
+
+  const getPageTitle = () => {
+    if (searchTerm) return `Resultados para "${searchTerm}"`;
+    if (subCategoryTerm) return `${categoryTerm} / ${subCategoryTerm}`;
+    if (categoryTerm) return `Mostrando produtos de "${categoryTerm}"`;
+    return "Nossos Produtos";
+  };
 
   return (
     <>
-      {/* CORREÇÃO: O Hero só será renderizado se NÃO houver um termo de busca */}
-      {!searchTerm && <Hero />}
+      {!searchTerm && !categoryTerm && !subCategoryTerm && <Hero />}
 
       <main className="container my-5">
-        <h2 className="text-center mb-4">
-          {searchTerm ? `Resultados para "${searchTerm}"` : "Nossos Produtos"}
-        </h2>
+        <div className="text-center">
+            <h2 className="mb-4">{getPageTitle()}</h2>
+            <CategoryFilter />
+        </div>
+        
         {loading ? (
           <p className="text-center">Carregando...</p>
         ) : (
-          <div className="row g-4">
+          <div className="row g-4 mt-4">
             {products.length > 0 ? (
               products.map(product => (
                 <div key={product.id} className="col-12 col-md-6 col-lg-3 d-flex align-items-stretch">
@@ -51,10 +68,11 @@ const Index = () => {
                 </div>
               ))
             ) : (
-              <p className="text-center text-muted">Nenhum produto encontrado.</p>
+              <p className="text-center text-muted">Nenhum produto encontrado para os filtros selecionados.</p>
             )}
           </div>
         )}
+        {/* Futuramente, podemos adicionar um botão "Carregar mais" ou paginação aqui também */}
       </main>
     </>
   );

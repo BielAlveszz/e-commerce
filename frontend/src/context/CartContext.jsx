@@ -1,10 +1,10 @@
 import React, { createContext, useState, useContext } from 'react';
-import { useAuth } from './AuthContext'; // Importa o useAuth para saber se o usuário está logado
+import { useAuth } from './AuthContext'; // Precisamos do token para o checkout
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  const { token } = useAuth(); // Pega o token do usuário logado
+  const { token } = useAuth();
   const [cartItems, setCartItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
@@ -14,7 +14,7 @@ export const CartProvider = ({ children }) => {
       if (isItemInCart) {
         return prevItems.map(item =>
           item.id === productToAdd.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: (item.quantity || 1) + 1 }
             : item
         );
       }
@@ -39,9 +39,11 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // Função de checkout simplificada: só funciona se o usuário estiver logado
+  // Função de checkout que cria o pedido e retorna os dados
   const checkout = async () => {
-    if (cartItems.length === 0 || !token) return;
+    if (cartItems.length === 0 || !token) {
+      throw new Error("O carrinho está vazio ou você não está logado.");
+    }
 
     try {
       const response = await fetch('http://localhost:3001/api/pedidos', {
@@ -59,13 +61,18 @@ export const CartProvider = ({ children }) => {
       }
       
       const orderData = await response.json();
-      alert(`Pedido #${orderData.pedido.id} criado com sucesso!`);
       
+      // Limpa o carrinho APENAS após o sucesso da criação do pedido
       setCartItems([]);
       setIsCartOpen(false);
-      // Idealmente, aqui você também recarregaria os produtos para atualizar o estoque na home
+      
+      // Retorna os dados do pedido criado para a página de checkout
+      return orderData.pedido; 
+
     } catch (error) {
-      alert(`Erro no checkout: ${error.message}`);
+      console.error("Erro no checkout:", error);
+      // Lança o erro para que a página de checkout possa tratá-lo
+      throw error; 
     }
   };
 

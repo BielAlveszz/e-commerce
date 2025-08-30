@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
 
 const MinhaContaPage = () => {
   const [pedidos, setPedidos] = useState([]);
@@ -8,51 +7,35 @@ const MinhaContaPage = () => {
   const { token, user } = useAuth();
 
   useEffect(() => {
-    // Garante que o estado de loading seja ativado no início
-    setLoading(true);
-
-    // Só tenta buscar os pedidos se o token já estiver disponível
-    if (token) {
-      fetch('http://localhost:3001/api/pedidos/meus-pedidos', {
-        headers: {
-          'Authorization': `Bearer ${token}` 
-        }
-      })
-      .then(res => {
-        if (!res.ok) {
-          throw new Error('Falha ao buscar os pedidos. Tente fazer login novamente.');
-        }
-        return res.json();
-      })
-      .then(data => {
-        if (Array.isArray(data)) {
-            setPedidos(data);
-        }
-      })
-      .catch(error => {
-        console.error("Erro ao buscar pedidos:", error);
-        // Limpa os pedidos em caso de erro para não mostrar dados antigos
-        setPedidos([]); 
-      })
-      .finally(() => {
-        // Finaliza o carregamento, com sucesso ou erro
-        setLoading(false);
-      });
-    } else {
-      // CORREÇÃO CRUCIAL: Se não houver token, pare de carregar imediatamente.
-      // Isso impede que a página fique presa em "Carregando...".
+    // Como o ProtectedRoute nos garante que o token existe, podemos buscar diretamente.
+    fetch('http://localhost:3001/api/pedidos/meus-pedidos', {
+      headers: {
+        'Authorization': `Bearer ${token}` 
+      }
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Falha ao buscar os pedidos.');
+      return res.json();
+    })
+    .then(data => {
+      setPedidos(data);
+    })
+    .catch(error => {
+      console.error("Erro ao buscar pedidos:", error);
+    })
+    .finally(() => {
       setLoading(false);
-    }
-  }, [token]); // O efeito agora depende apenas do token
+    });
+  }, [token]); // Depender do token ainda é uma boa prática.
 
   if (loading) {
-    return <div className="container text-center my-5"><h2>Carregando...</h2></div>;
+    return <div className="container text-center my-5"><h2>Carregando seu histórico...</h2></div>;
   }
 
   return (
     <div className="container my-5">
       <h1 className="mb-4">Minha Conta</h1>
-      {/* Adicionamos uma verificação para garantir que 'user' não seja nulo */}
+      {/* A verificação 'user &&' garante que o nome só é exibido quando o objeto user está pronto */}
       {user && <p className="lead">Olá, {user.nome}! Bem-vindo(a) de volta.</p>}
 
       <h2 className="mt-5">Seu Histórico de Pedidos</h2>

@@ -1,37 +1,54 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { jwtDecode } from 'jwt-decode'; // Precisaremos instalar esta biblioteca
+import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
+  // NOVO ESTADO: Controla se a verificação inicial do token no localStorage já terminou.
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // Efeito que roda quando o componente é criado ou o token muda
+  // Este useEffect roda APENAS UMA VEZ quando a aplicação inicia.
   useEffect(() => {
     try {
-      if (token) {
-        // Decodifica o token para pegar as informações do usuário (id, nome)
-        const decodedUser = jwtDecode(token);
-        setUser(decodedUser);
-        localStorage.setItem('token', token);
-      } else {
-        setUser(null);
-        localStorage.removeItem('token');
+      const storedToken = localStorage.getItem('token');
+      if (storedToken) {
+        const decodedUser = jwtDecode(storedToken);
+        // Verifica se o token não expirou (opcional, mas recomendado)
+        if (decodedUser.exp * 1000 > Date.now()) {
+          setToken(storedToken);
+          setUser(decodedUser);
+        } else {
+          // Se o token expirou, remove.
+          localStorage.removeItem('token');
+        }
       }
     } catch (error) {
-      // Se o token for inválido, limpa tudo
-      setUser(null);
+      console.error("Erro ao decodificar token:", error);
       localStorage.removeItem('token');
+    } finally {
+      // Informa que a verificação inicial terminou.
+      setAuthLoading(false);
     }
-  }, [token]);
+  }, []); // O array vazio [] garante que rode apenas uma vez.
 
   const login = (newToken) => {
-    setToken(newToken);
+    localStorage.setItem('token', newToken);
+    try {
+      const decodedUser = jwtDecode(newToken);
+      setToken(newToken);
+      setUser(decodedUser);
+    } catch (error) {
+      // Limpa tudo em caso de token inválido no login
+      logout();
+    }
   };
 
   const logout = () => {
+    localStorage.removeItem('token');
     setToken(null);
+    setUser(null);
   };
 
   const value = {
@@ -39,10 +56,16 @@ export const AuthProvider = ({ children }) => {
     user,
     login,
     logout,
-    isAuthenticated: !!token // Uma forma fácil de verificar se o usuário está logado
+    isAuthenticated: !!token,
+    authLoading // <-- Exporta o novo estado
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  // Só renderiza o resto da aplicação quando a verificação inicial terminar
+  return (
+    <AuthContext.Provider value={value}>
+      {!authLoading && children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {

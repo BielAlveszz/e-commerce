@@ -3,14 +3,19 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authLoading } = useAuth();
 
+  // Se a verificação de autenticação ainda está em andamento, mostra um loading.
+  if (authLoading) {
+    return <div className="container text-center my-5"><h2>Verificando acesso...</h2></div>;
+  }
+
+  // Se a verificação terminou e o usuário não está autenticado, redireciona para o login.
   if (!isAuthenticated) {
-    // Se não estiver autenticado, redireciona para a página de login
     return <Navigate to="/login" replace />;
   }
 
-  // Se estiver autenticado, renderiza o componente filho (a página protegida)
+  // Se a verificação terminou e o usuário está autenticado, renderiza a página.
   return children;
 };
 

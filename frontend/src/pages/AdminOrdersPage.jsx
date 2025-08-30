@@ -3,40 +3,29 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 
 const AdminOrdersPage = () => {
-    // Inicia o estado com um array vazio para evitar o erro .map()
     const [pedidos, setPedidos] = useState([]);
     const [loading, setLoading] = useState(true);
     const { token } = useAuth();
 
     useEffect(() => {
-        if (token) {
-            fetch('http://localhost:3001/api/pedidos', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error('Falha ao buscar pedidos do servidor');
-                }
-                return res.json();
-            })
-            .then(data => {
-                // Garante que o estado seja atualizado apenas se os dados forem um array
-                if (Array.isArray(data)) {
-                    setPedidos(data);
-                }
-            })
-            .catch(error => {
-                console.error("Erro ao buscar pedidos:", error);
-            })
-            .finally(() => {
-                setLoading(false);
-            });
-        }
+        fetch('http://localhost:3001/api/pedidos', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (Array.isArray(data)) {
+                setPedidos(data);
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao buscar pedidos:", error);
+        })
+        .finally(() => {
+            setLoading(false);
+        });
     }, [token]);
 
-    if (loading) {
-        return <div className="container my-5 text-center"><p>Carregando pedidos...</p></div>;
-    }
+    if (loading) return <div className="container my-5"><p>Carregando todos os pedidos...</p></div>;
 
     return (
         <div className="container my-5">
@@ -54,10 +43,10 @@ const AdminOrdersPage = () => {
                 <div className="card">
                     <div className="card-body">
                         <div className="table-responsive">
-                            <table className="table table-hover align-middle">
+                            <table className="table table-hover">
                                 <thead>
                                     <tr>
-                                        <th>ID Pedido</th>
+                                        <th>ID do Pedido</th>
                                         <th>Cliente</th>
                                         <th>Email</th>
                                         <th>Data</th>

@@ -7,6 +7,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 const app = express();
 
@@ -20,5 +21,6 @@ app.use('/api/pedidos', orderRoutes);
 app.use('/api/clientes', clienteRoutes);
 app.use('/api/categorias', categoryRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/avaliacoes', reviewRoutes);
 
 module.exports = app;

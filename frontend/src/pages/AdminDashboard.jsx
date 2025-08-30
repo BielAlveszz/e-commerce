@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 const AdminDashboard = () => {
-    const [products, setProducts] = useState([]);
+    // O estado agora armazena o objeto completo que a API retorna
+    const [data, setData] = useState({ products: [], totalPages: 1, currentPage: 1 });
     const [loading, setLoading] = useState(true);
     const { token } = useAuth();
+    const [searchParams] = useSearchParams();
 
-    // Função para buscar a lista de produtos da API
-    const fetchProducts = () => {
+    // Lê o parâmetro 'page' da URL. Se não existir, o valor padrão é 1.
+    const currentPage = parseInt(searchParams.get('page') || '1', 10);
+
+    // Função para buscar os produtos de uma página específica
+    const fetchProducts = (page) => {
         setLoading(true);
-        fetch('http://localhost:3001/api/produtos')
+        // Agora a requisição inclui a página e um limite de 10 itens
+        fetch(`http://localhost:3001/api/produtos?page=${page}&limit=10`)
             .then(res => res.json())
-            .then(data => {
-                setProducts(data);
+            .then(apiData => {
+                setData(apiData);
                 setLoading(false);
             })
             .catch(error => {
@@ -22,36 +28,44 @@ const AdminDashboard = () => {
             });
     };
 
-    // Executa a busca de produtos assim que a página carrega
+    // O useEffect agora é acionado sempre que o 'currentPage' (lido da URL) muda
     useEffect(() => {
-        fetchProducts();
-    }, []);
+        fetchProducts(currentPage);
+    }, [currentPage]);
 
-    // Função para deletar um produto
     const handleDelete = async (productId) => {
-        // Pede uma confirmação ao usuário antes de deletar
-        if (window.confirm('Tem certeza que deseja deletar este produto? Esta ação não pode ser desfeita.')) {
-            try {
-                const response = await fetch(`http://localhost:3001/api/produtos/${productId}`, {
-                    method: 'DELETE',
-                    headers: { 
-                        'Authorization': `Bearer ${token}` 
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Falha ao deletar o produto.');
-                }
-                
-                // Atualiza a lista de produtos na tela para remover o item deletado, sem precisar recarregar a página
-                setProducts(products.filter(p => p.id !== productId));
-                alert('Produto deletado com sucesso!');
-
-            } catch (error) {
-                console.error("Erro ao deletar produto:", error);
-                alert(error.message);
-            }
+        if (window.confirm('Tem certeza que deseja deletar este produto?')) {
+            await fetch(`http://localhost:3001/api/produtos/${productId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            // Após deletar, recarrega a página atual para refletir a mudança
+            fetchProducts(currentPage);
         }
+    };
+    
+    // Função para gerar os botões de paginação
+    const renderPagination = () => {
+        // Se houver apenas 1 página (ou menos), não mostra os botões
+        if (data.totalPages <= 1) {
+            return null;
+        }
+        
+        const pages = [];
+        for (let i = 1; i <= data.totalPages; i++) {
+            pages.push(
+                <li key={i} className={`page-item ${i === data.currentPage ? 'active' : ''}`}>
+                    <Link to={`/admin/dashboard?page=${i}`} className="page-link">{i}</Link>
+                </li>
+            );
+        }
+        return (
+            <nav aria-label="Paginação de produtos">
+                <ul className="pagination mb-0">
+                    {pages}
+                </ul>
+            </nav>
+        );
     };
 
     if (loading) {
@@ -63,14 +77,9 @@ const AdminDashboard = () => {
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h1>Painel do Administrador</h1>
                 <div className="d-flex gap-2">
-                    {/* Link para a página de gerenciar pedidos */}
-                    <Link to="/admin/pedidos" className="btn btn-info">
-                        Ver Pedidos
-                    </Link>
-                    {/* Link para a página de criar um novo produto */}
-                    <Link to="/admin/produtos/novo" className="btn btn-primary">
-                        Adicionar Novo Produto
-                    </Link>
+                    <Link to="/admin/categorias" className="btn btn-secondary">Gerenciar Categorias</Link>
+                    <Link to="/admin/pedidos" className="btn btn-info">Ver Pedidos</Link>
+                    <Link to="/admin/produtos/novo" className="btn btn-primary">Adicionar Novo Produto</Link>
                 </div>
             </div>
 
@@ -89,28 +98,25 @@ const AdminDashboard = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {products.length > 0 ? (
-                                    products.map(product => (
-                                        <tr key={product.id}>
-                                            <td>{product.id}</td>
-                                            <td>{product.nome}</td>
-                                            <td>R$ {parseFloat(product.preco).toFixed(2)}</td>
-                                            <td>{product.quantidade_estoque}</td>
-                                            <td className="text-end">
-                                                {/* Link para a página de edição do produto específico */}
-                                                <Link to={`/admin/produtos/editar/${product.id}`} className="btn btn-sm btn-secondary me-2">Editar</Link>
-                                                <button onClick={() => handleDelete(product.id)} className="btn btn-sm btn-danger">Deletar</button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="5" className="text-center text-muted">Nenhum produto cadastrado.</td>
+                                {data.products.map(product => (
+                                    <tr key={product.id}>
+                                        <td>{product.id}</td>
+                                        <td>{product.nome}</td>
+                                        <td>R$ {parseFloat(product.preco).toFixed(2)}</td>
+                                        <td>{product.quantidade_estoque}</td>
+                                        <td className="text-end">
+                                            <Link to={`/admin/produtos/editar/${product.id}`} className="btn btn-sm btn-secondary me-2">Editar</Link>
+                                            <button onClick={() => handleDelete(product.id)} className="btn btn-sm btn-danger">Deletar</button>
+                                        </td>
                                     </tr>
-                                )}
+                                ))}
                             </tbody>
                         </table>
                     </div>
+                </div>
+                {/* A paginação é renderizada aqui no rodapé do card */}
+                <div className="card-footer d-flex justify-content-center">
+                    {renderPagination()}
                 </div>
             </div>
         </div>
