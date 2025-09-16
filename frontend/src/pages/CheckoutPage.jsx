@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { QRCodeSVG } from 'qrcode.react'; // CORREÇÃO: Importação nomeada
 import toast from 'react-hot-toast';
 
 const CheckoutPage = () => {
@@ -15,7 +14,6 @@ const CheckoutPage = () => {
 
     const total = cartItems.reduce((sum, item) => sum + (item.preco * (item.quantity || 1)), 0);
 
-    // Se o carrinho estiver vazio e nenhum pedido tiver sido criado ainda, volta para a home.
     useEffect(() => {
         if (cartItems.length === 0 && !pedidoCriado) {
             toast.error("Seu carrinho está vazio. Adicione itens antes de finalizar a compra.");
@@ -26,6 +24,7 @@ const CheckoutPage = () => {
     const handleConfirmarPedido = async () => {
         setLoading(true);
         try {
+            // Esta função já chama nosso novo backend
             const pedido = await checkout();
             if (pedido) {
                 setPedidoCriado(pedido);
@@ -39,8 +38,9 @@ const CheckoutPage = () => {
     };
     
     const copiarCodigoPix = () => {
-        if (pedidoCriado?.chave_pix) {
-            navigator.clipboard.writeText(pedidoCriado.chave_pix);
+        // Agora usamos o campo `qr_code_copia_cola` vindo da API
+        if (pedidoCriado?.qr_code_copia_cola) {
+            navigator.clipboard.writeText(pedidoCriado.qr_code_copia_cola);
             toast.success('Código PIX copiado!');
         }
     };
@@ -49,7 +49,7 @@ const CheckoutPage = () => {
         <div className="container my-5">
             <h1 className="mb-4">Finalizar Pedido</h1>
             <div className="row g-5">
-                {/* Coluna de Resumo do Pedido */}
+                {/* Coluna de Resumo do Pedido (sem alterações) */}
                 <div className="col-md-7">
                     <div className="card">
                         <div className="card-header">
@@ -73,30 +73,35 @@ const CheckoutPage = () => {
                     </div>
                 </div>
 
-                {/* Coluna de Pagamento */}
+                {/* Coluna de Pagamento (COM AS MUDANÇAS) */}
                 <div className="col-md-5">
                     <div className="card">
                         <div className="card-header">
-                            <h4>Pagamento</h4>
+                            <h4>Pagamento via PIX</h4>
                         </div>
                         <div className="card-body text-center">
                             {pedidoCriado ? (
-                                // Se o pedido já foi criado, mostra o PIX
                                 <div>
-                                    <h5>Pague com PIX para confirmar</h5>
-                                    <p>Aponte a câmera do seu celular para o QR Code abaixo ou use o código "Copia e Cola".</p>
+                                    <h5>Pague para confirmar seu pedido</h5>
+                                    <p>Aponte a câmera do seu celular ou use o "Copia e Cola".</p>
                                     <div className="my-3 d-flex justify-content-center">
-                                        {/* CORREÇÃO: Usando o componente importado corretamente */}
-                                        <QRCodeSVG value={pedidoCriado.chave_pix || ''} size={220} />
+                                        {/* MUDANÇA 1: Exibimos a imagem do QR Code em Base64 */}
+                                        {pedidoCriado.qr_code_base64 && (
+                                            <img 
+                                                src={`data:image/jpeg;base64,${pedidoCriado.qr_code_base64}`}
+                                                alt="QR Code PIX"
+                                                style={{width: '220px', height: '220px'}}
+                                            />
+                                        )}
                                     </div>
                                     <div className="input-group">
-                                        <input type="text" className="form-control" value={pedidoCriado.chave_pix} readOnly />
+                                        {/* MUDANÇA 2: Usamos o novo campo para o Copia e Cola */}
+                                        <input type="text" className="form-control" value={pedidoCriado.qr_code_copia_cola || ''} readOnly />
                                         <button className="btn btn-outline-secondary" onClick={copiarCodigoPix}>Copiar</button>
                                     </div>
                                     <Link to="/minha-conta" className="btn btn-secondary w-100 mt-3">Ver Meus Pedidos</Link>
                                 </div>
                             ) : (
-                                // Se o pedido ainda não foi criado, mostra o botão para confirmar
                                 <div>
                                     <p>Confirme seu pedido para gerar o código PIX para pagamento.</p>
                                     <p><strong>Comprando como:</strong> {user?.nome}</p>

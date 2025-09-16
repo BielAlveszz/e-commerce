@@ -3,9 +3,14 @@ const router = express.Router();
 const db = require('../database');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
-const { generatePixPayload } = require('../utils/geradorPix'); // Importa a nova função
+const { MercadoPagoConfig, Payment } = require('mercadopago');
 
-// ROTA PARA CRIAR UM NOVO PEDIDO (com PIX funcional)
+// Configura o cliente do Mercado Pago com o seu Access Token do .env
+const client = new MercadoPagoConfig({ 
+    accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN 
+});
+
+// ROTA PARA CRIAR UM NOVO PEDIDO (VERSÃO CORRIGIDA)
 router.post('/', authMiddleware, async (req, res) => {
   const { cartItems } = req.body;
   const clienteId = req.user.id;
@@ -15,51 +20,69 @@ router.post('/', authMiddleware, async (req, res) => {
   }
   
   try {
+    // 1. Calcula o valor total e verifica o estoque (sem transação)
     let valorTotal = 0;
     for (const item of cartItems) {
       const { rows } = await db.query('SELECT nome, preco, quantidade_estoque FROM "produtos" WHERE id = $1', [item.id]);
       const produtoNoBanco = rows[0];
       if (!produtoNoBanco || produtoNoBanco.quantidade_estoque < item.quantity) {
-        throw new Error(`Produto "${item.nome}" fora de estoque!`);
+        throw new Error(`Produto "${item.nome}" está fora de estoque!`);
       }
       valorTotal += parseFloat(produtoNoBanco.preco) * item.quantity;
     }
     
-    // Cria o pedido primeiro para obter um ID
+    // 2. Cria o pedido no banco de dados
     const { rows: pedidoRows } = await db.query(
       'INSERT INTO "pedidos" (cliente_id, valor_total, status) VALUES ($1, $2, $3) RETURNING *',
       [clienteId, valorTotal, 'pagamento_pendente']
     );
     const novoPedido = pedidoRows[0];
 
-    // Gera um ID de transação único para o PIX
-    const txid = `MEBYPEDIDO${novoPedido.id}`.replace(/[^a-zA-Z0-9]/g, '').substring(0, 25);
+    // 3. Prepara e envia a requisição para a API do Mercado Pago
+   const payment = new Payment(client);
+    const body = {
+        transaction_amount: Number(valorTotal.toFixed(2)),
+        description: `Pedido #${novoPedido.id} - Meby Cosméticos`,
+        payment_method_id: 'pix',
+        payer: {
+            email: req.user.email,
+            first_name: req.user.nome,
+            // Adicionamos o objeto de identificação com o CPF
+            identification: {
+                type: 'CPF',
+                number: req.user.cpf.replace(/[^\d]/g, "") // Pegamos o CPF do token
+            }
+        },
+    };
 
-    // Gera o payload do BR Code para o PIX
-    const pixPayload = generatePixPayload({
-        pixKey: 'ggalaves2006@hotmail.com', // IMPORTANTE: Substitua pela sua chave PIX real (CPF, CNPJ, Email, etc.)
-        merchantName: 'Gabriel Gonçalves Alves', // Nome que aparecerá para o cliente
-        merchantCity: 'SAO PAULO', // Cidade do seu negócio (sem acentos, máx 15 caracteres)
-        txid: txid,
-        amount: valorTotal
-    });
+    const pixData = await payment.create({ body });
 
-    // Atualiza o pedido no banco com o payload PIX gerado
-    await db.query('UPDATE "pedidos" SET chave_pix = $1 WHERE id = $2', [pixPayload, novoPedido.id]);
+    // 4. Extrai e salva os dados do PIX
+    const qrCodeBase64 = pixData.point_of_interaction.transaction_data.qr_code_base64;
+    const qrCodeCopyPaste = pixData.point_of_interaction.transaction_data.qr_code;
 
-    // Adiciona o payload ao objeto de resposta
-    novoPedido.chave_pix = pixPayload;
+    await db.query('UPDATE "pedidos" SET chave_pix = $1, mercado_pago_id = $2 WHERE id = $3', 
+        [qrCodeCopyPaste, pixData.id, novoPedido.id]);
     
-    // Insere os itens na tabela "itens_pedido" e abate do estoque
+    // 5. Insere os itens do pedido e atualiza o estoque de cada produto
     for (const item of cartItems) {
       const produto = (await db.query('SELECT preco FROM "produtos" WHERE id = $1', [item.id])).rows[0];
       await db.query('INSERT INTO "itens_pedido" (pedido_id, produto_id, quantidade, preco_no_momento_da_compra) VALUES ($1, $2, $3, $4)', [novoPedido.id, item.id, item.quantity, produto.preco]);
       await db.query('UPDATE "produtos" SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2', [item.quantity, item.id]);
     }
 
-    res.status(201).json({ message: 'Pedido criado com sucesso!', pedido: novoPedido });
+    // 6. Envia a resposta para o frontend
+    res.status(201).json({ 
+        message: 'Pedido criado com sucesso!', 
+        pedido: {
+            ...novoPedido,
+            qr_code_base64: qrCodeBase64,
+            qr_code_copia_cola: qrCodeCopyPaste
+        }
+    });
+
   } catch (err) {
-    console.error("ERRO AO PROCESSAR PEDIDO:", err);
+    console.error("ERRO AO PROCESSAR PEDIDO:", err.cause || err.message);
     res.status(500).json({ message: "Ocorreu um erro ao processar o pedido: " + err.message });
   }
 });
