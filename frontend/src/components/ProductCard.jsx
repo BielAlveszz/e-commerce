@@ -3,10 +3,10 @@ import { useCart } from '../context/CartContext';
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
+  const imageUrl = `http://localhost:3001/images/${product.url_imagem}`;
   
-  // CORREÇÃO: O caminho da imagem deve ser montado a partir da pasta `public`
-  // Se você criou a pasta `images` dentro de `public`, este caminho está correto.
-  const imageUrl = `/images/${product.url_imagem}`;
+  // Verifica se o produto está em oferta
+  const onSale = product.preco_promocional && parseFloat(product.preco_promocional) > 0;
 
   return (
     <Link to={`/produto/${product.id}`} className="card h-100 border-0 product-card text-decoration-none text-dark">
@@ -14,22 +14,36 @@ const ProductCard = ({ product }) => {
         src={imageUrl}
         className="card-img-top"
         alt={product.nome}
-        // Esta linha ajuda a mostrar uma imagem padrão caso a sua não seja encontrada
         onError={(e) => { e.target.onerror = null; e.target.src="https://via.placeholder.com/300?text=Imagem+Nao+Encontrada" }}
       />
       <div className="card-body d-flex flex-column">
         <h5 className="card-title">{product.nome}</h5>
         <p className="card-text text-muted">Estoque: {product.quantidade_estoque}</p>
-        <p className="card-text fs-4 fw-bold mt-2">
-          R$ {parseFloat(product.preco).toFixed(2)}
-        </p>
+        
+        <div className="mt-auto">
+          {onSale ? (
+            <>
+              <span className="card-text text-muted text-decoration-line-through me-2">
+                R$ {parseFloat(product.preco).toFixed(2)}
+              </span>
+              <p className="card-text fs-4 fw-bold text-danger d-inline">
+                R$ {parseFloat(product.preco_promocional).toFixed(2)}
+              </p>
+            </>
+          ) : (
+            <p className="card-text fs-4 fw-bold">
+              R$ {parseFloat(product.preco).toFixed(2)}
+            </p>
+          )}
+        </div>
+
         <button 
           onClick={(e) => {
             e.preventDefault();
             addToCart(product);
           }}
           disabled={product.quantidade_estoque === 0}
-          className="btn btn-dark-custom w-100 mt-auto"
+          className="btn btn-dark-custom w-100 mt-2"
         >
           {product.quantidade_estoque > 0 ? "Adicionar ao Carrinho" : "Esgotado"}
         </button>

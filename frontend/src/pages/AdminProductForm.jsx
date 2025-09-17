@@ -6,11 +6,11 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-// Esquema de validação com Zod (sem alterações)
 const productSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter no mínimo 3 caracteres.'),
   descricao: z.string().optional(),
   preco: z.coerce.number().positive('O preço deve ser um número positivo.'),
+  preco_promocional: z.coerce.number().nonnegative('O preço não pode ser negativo. Use 0 para sem oferta.').optional(),
   quantidade_estoque: z.coerce.number().int().nonnegative('O estoque não pode ser negativo.'),
   url_imagem: z.string().optional(),
   sub_categoria_id: z.coerce.number().int().positive('Você deve selecionar uma sub-categoria.')
@@ -22,7 +22,6 @@ const AdminProductForm = () => {
   const { token } = useAuth();
   const isEditing = Boolean(id);
 
-  // States (sem alterações)
   const [categorias, setCategorias] = useState([]);
   const [subCategorias, setSubCategorias] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState('');
@@ -31,26 +30,37 @@ const AdminProductForm = () => {
   const [imagemSelecionada, setImagemSelecionada] = useState(null);
   const [loading, setLoading] = useState(false);
   const [existingImageUrl, setExistingImageUrl] = useState('');
+  
+  // INÍCIO DA CORREÇÃO: Novo estado para guardar a subcategoria inicial
+  const [initialSubCategoryId, setInitialSubCategoryId] = useState(null);
+  // FIM DA CORREÇÃO
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     resolver: zodResolver(productSchema),
   });
 
-  // useEffects para buscar dados (sem alterações)
-  useEffect(() => {
+  const fetchCategorias = () => {
     fetch('http://localhost:3001/api/categorias')
       .then(res => res.json())
       .then(data => setCategorias(data));
-  }, []);
+  };
 
-  useEffect(() => {
-    if (selectedCategoria) {
-      fetch(`http://localhost:3001/api/categorias/sub?categoriaId=${selectedCategoria}`)
+  const fetchSubCategorias = (categoriaId) => {
+    if (categoriaId) {
+      fetch(`http://localhost:3001/api/categorias/sub?categoriaId=${categoriaId}`)
         .then(res => res.json())
         .then(data => setSubCategorias(data));
     } else {
       setSubCategorias([]);
     }
+  };
+
+  useEffect(() => {
+    fetchCategorias();
+  }, []);
+
+  useEffect(() => {
+    fetchSubCategorias(selectedCategoria);
   }, [selectedCategoria]);
 
   useEffect(() => {
@@ -58,23 +68,55 @@ const AdminProductForm = () => {
       fetch(`http://localhost:3001/api/produtos/${id}`)
         .then(res => res.json())
         .then(data => {
-          Object.keys(data).forEach(key => setValue(key, data[key]));
-          setExistingImageUrl(data.url_imagem);
+          if (data) {
+            Object.keys(data).forEach(key => setValue(key, data[key]));
+            setExistingImageUrl(data.url_imagem);
+            
+            // INÍCIO DA CORREÇÃO: Guarda a subcategoria que queremos selecionar...
+            setInitialSubCategoryId(data.sub_categoria_id);
+            // ...e DEPOIS aciona o carregamento das subcategorias.
+            setSelectedCategoria(data.categoria_id);
+            // FIM DA CORREÇÃO
+          }
         });
     }
   }, [id, isEditing, setValue]);
 
-  // Função para criar sub-categoria (sem alterações)
-  const handleCreateSubCategoria = async () => { /* ...seu código existente... */ };
+  // INÍCIO DA CORREÇÃO: Este novo useEffect espera a lista de subcategorias carregar.
+  useEffect(() => {
+    // Se temos uma subcategoria para selecionar E a lista de opções já carregou...
+    if (initialSubCategoryId && subCategorias.length > 0) {
+      // ...então é seguro definir o valor no formulário.
+      setValue('sub_categoria_id', initialSubCategoryId);
+    }
+  }, [subCategorias, initialSubCategoryId, setValue]);
+  // FIM DA CORREÇÃO
 
-  // Função onSubmit refatorada para a forma mais simples
+  const handleCreateSubCategoria = async () => {
+    if (!novaSubCategoriaNome.trim() || !selectedCategoria) {
+        return toast.error("O nome da sub-categoria não pode ser vazio.");
+    }
+    try {
+        const response = await fetch('http://localhost:3001/api/categorias/sub', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ nome: novaSubCategoriaNome, categoria_id: selectedCategoria })
+        });
+        if (!response.ok) throw new Error('Falha ao criar sub-categoria.');
+        
+        toast.success('Sub-categoria criada com sucesso!');
+        setNovaSubCategoriaNome('');
+        setShowNovaSubCategoria(false);
+        fetchSubCategorias(selectedCategoria);
+    } catch (error) {
+        toast.error(error.message);
+    }
+  };
+
   const onSubmit = async (formData) => {
     setLoading(true);
-    
     try {
       let finalImageFilename = existingImageUrl;
-
-      // 1. Faz o upload da imagem, se houver uma nova
       if (imagemSelecionada) {
         const uploadFormData = new FormData();
         uploadFormData.append('image', imagemSelecionada);
@@ -87,41 +129,29 @@ const AdminProductForm = () => {
         if (!uploadRes.ok) throw new Error(uploadData.message || 'Falha no upload da imagem.');
         finalImageFilename = uploadData.imageFilename;
       }
-
       if (!finalImageFilename && !isEditing) {
         throw new Error("Por favor, selecione uma imagem para o novo produto.");
       }
-      
       const productData = { ...formData, url_imagem: finalImageFilename };
       const url = isEditing ? `http://localhost:3001/api/produtos/${id}` : 'http://localhost:3001/api/produtos';
       const method = isEditing ? 'PUT' : 'POST';
-
-      // 2. Envia os dados do produto
       const response = await fetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(productData)
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Falha ao salvar o produto');
       }
-
-      // 3. Mostra a notificação de sucesso
       toast.success(`Produto ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
-
-      // 4. Espera 1.5 segundos e DEPOIS navega
       setTimeout(() => {
         navigate('/admin/dashboard');
       }, 1500);
-
     } catch (error) {
-      // 5. Mostra a notificação de erro
       toast.error(`Erro: ${error.message}`);
       setLoading(false);
     }
-    // Não precisamos do setLoading(false) no 'finally', pois o redirect acontecerá
   };
 
   return (
@@ -135,26 +165,31 @@ const AdminProductForm = () => {
       <h1 className="mb-4">{isEditing ? 'Editar Produto' : 'Adicionar Novo Produto'}</h1>
       
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        {/* --- CAMPO NOME --- */}
         <div className="mb-3">
           <label htmlFor="nome" className="form-label">Nome do Produto</label>
           <input type="text" className={`form-control ${errors.nome ? 'is-invalid' : ''}`} id="nome" {...register('nome')} />
           {errors.nome && <div className="invalid-feedback">{errors.nome.message}</div>}
         </div>
         
-        {/* --- CAMPO DESCRIÇÃO --- */}
         <div className="mb-3">
           <label htmlFor="descricao" className="form-label">Descrição</label>
           <textarea className="form-control" id="descricao" rows="4" {...register('descricao')}></textarea>
         </div>
         
-        {/* --- CAMPOS PREÇO E ESTOQUE (LADO A LADO) --- */}
         <div className="row">
             <div className="col-md-6 mb-3">
-                <label htmlFor="preco" className="form-label">Preço (R$)</label>
+                <label htmlFor="preco" className="form-label">Preço Original (R$)</label>
                 <input type="number" step="0.01" className={`form-control ${errors.preco ? 'is-invalid' : ''}`} id="preco" {...register('preco')} />
                 {errors.preco && <div className="invalid-feedback">{errors.preco.message}</div>}
             </div>
+            <div className="col-md-6 mb-3">
+                <label htmlFor="preco_promocional" className="form-label">Preço Promocional (R$)</label>
+                <input type="number" step="0.01" className={`form-control ${errors.preco_promocional ? 'is-invalid' : ''}`} id="preco_promocional" {...register('preco_promocional')} placeholder="Deixe 0 se não estiver em oferta" />
+                {errors.preco_promocional && <div className="invalid-feedback">{errors.preco_promocional.message}</div>}
+            </div>
+        </div>
+
+        <div className="row">
             <div className="col-md-6 mb-3">
                 <label htmlFor="quantidade_estoque" className="form-label">Quantidade em Estoque</label>
                 <input type="number" className={`form-control ${errors.quantidade_estoque ? 'is-invalid' : ''}`} id="quantidade_estoque" {...register('quantidade_estoque')} />
@@ -162,7 +197,6 @@ const AdminProductForm = () => {
             </div>
         </div>
         
-        {/* --- CAMPO IMAGEM --- */}
         <div className="mb-3">
             <label htmlFor="imagem" className="form-label">Imagem do Produto</label>
             <input 
@@ -181,7 +215,6 @@ const AdminProductForm = () => {
             <input type="hidden" {...register('url_imagem')} />
         </div>
 
-        {/* --- SELEÇÃO DE CATEGORIA --- */}
         <div className="row">
           <div className="col-md-6 mb-3">
             <label htmlFor="categoria_id" className="form-label">Categoria Principal</label>

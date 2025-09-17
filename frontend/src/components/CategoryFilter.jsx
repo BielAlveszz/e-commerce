@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
-const CategoryFilter = () => {
+const CategoryFilter = ({ currentView }) => {
     const [categorias, setCategorias] = useState([]);
     const [subCategorias, setSubCategorias] = useState([]);
     const [searchParams] = useSearchParams();
@@ -9,7 +9,6 @@ const CategoryFilter = () => {
     const currentCategory = searchParams.get('categoria');
     const currentSubCategory = searchParams.get('subcategoria');
 
-    // Busca as categorias e sub-categorias da API
     useEffect(() => {
         const fetchFilters = async () => {
             try {
@@ -28,20 +27,21 @@ const CategoryFilter = () => {
         fetchFilters();
     }, []);
 
-    // Encontra o ID da categoria principal selecionada atualmente
     const selectedCategoryId = categorias.find(c => c.nome === currentCategory)?.id;
+
+    // Constrói a URL base para os links, mantendo o ?view=all se necessário
+    const baseUrl = (currentView === 'all' || currentCategory) ? '/?view=all' : '/';
 
     return (
         <div className="container mb-5">
-            {/* Filtros de Categoria Principal */}
             <div className="d-flex justify-content-center flex-wrap gap-2">
-                <Link to="/" className={`btn ${!currentCategory ? 'btn-dark' : 'btn-outline-dark'}`}>
+                <Link to={baseUrl} className={`btn ${!currentCategory ? 'btn-dark' : 'btn-outline-dark'}`}>
                     Todos
                 </Link>
                 {categorias.map(categoria => (
                     <Link 
                         key={categoria.id} 
-                        to={`/?categoria=${categoria.nome}`}
+                        to={`${baseUrl}&categoria=${categoria.nome}`}
                         className={`btn ${currentCategory === categoria.nome ? 'btn-dark' : 'btn-outline-dark'}`}
                     >
                         {categoria.nome}
@@ -49,7 +49,6 @@ const CategoryFilter = () => {
                 ))}
             </div>
 
-            {/* Filtros de Sub-Categoria (só aparecem se uma categoria principal for selecionada) */}
             {selectedCategoryId && (
                 <div className="d-flex justify-content-center flex-wrap gap-2 mt-3 pt-3 border-top">
                     {subCategorias
@@ -57,7 +56,7 @@ const CategoryFilter = () => {
                         .map(sub => (
                             <Link
                                 key={sub.id}
-                                to={`/?categoria=${currentCategory}&subcategoria=${sub.nome}`}
+                                to={`${baseUrl}&categoria=${currentCategory}&subcategoria=${sub.nome}`}
                                 className={`btn btn-sm ${currentSubCategory === sub.nome ? 'btn-secondary' : 'btn-outline-secondary'}`}
                             >
                                 {sub.nome}

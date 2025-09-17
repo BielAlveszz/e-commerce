@@ -51,7 +51,7 @@ const Cart = () => {
                 {cartItems.map(item => (
                   <div key={item.id} className="d-flex align-items-center gap-3 mb-4">
                     <img 
-                      src={`/images/${item.url_imagem}`} 
+                     src={`http://localhost:3001/images/${item.url_imagem}`} 
                       alt={item.nome} 
                       style={{width: '64px', height: '64px', objectFit: 'cover'}} 
                       className="rounded" 

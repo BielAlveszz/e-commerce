@@ -90,13 +90,13 @@ const ProdutoDetalhe = () => {
     }
 
     // Renderização principal da página
-    return (
+ return (
         <main className="container my-5">
-            {/* Seção de Detalhes do Produto */}
             <div className="row g-5">
                 <div className="col-md-6">
                     <img 
-                        src={`/images/${produto.url_imagem}`} 
+                        // CORREÇÃO: Usamos a URL completa do backend
+                        src={`http://localhost:3001/images/${produto.url_imagem}`} 
                         alt={produto.nome} 
                         className="img-fluid rounded shadow-sm"
                         onError={(e) => { e.target.onerror = null; e.target.src="https://via.placeholder.com/600x600?text=Imagem+Indisponível" }}
