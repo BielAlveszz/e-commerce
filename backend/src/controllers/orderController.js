@@ -1,5 +1,5 @@
 const OrderModel = require('../models/orderModel');
-const ProductModel = require('../models/productModel'); // Para verificar estoque
+const ProductModel = require('../models/productModel');
 const { MercadoPagoConfig, Payment } = require('mercadopago');
 
 const client = new MercadoPagoConfig({ 
@@ -45,7 +45,7 @@ const createOrder = async (req, res) => {
         const pixData = await payment.create({ body });
         const { qr_code_base64, qr_code } = pixData.point_of_interaction.transaction_data;
         
-        await OrderModel.addPixInfo(novoPedido.id, qr_code, pixData.id);
+        await OrderModel.addPixInfo(novoPedido.id, qr_code, pixData.id, qr_code_base64);
 
         res.status(201).json({ 
             message: 'Pedido criado com sucesso!', 
@@ -77,8 +77,28 @@ const getAllOrders = async (req, res) => {
     }
 };
 
+const getOrderDetails = async (req, res) => {
+    try {
+        const orderId = req.params.id;
+        const clienteId = req.user.id;
+
+        const details = await OrderModel.findByIdAndClientId(orderId, clienteId);
+
+        if (!details) {
+            return res.status(404).json({ message: "Pedido não encontrado ou não pertence a este usuário." });
+        }
+        
+        res.json(details);
+
+    } catch (error) {
+        console.error("Erro ao buscar detalhes do pedido:", error);
+        res.status(500).json({ message: 'Erro no servidor.' });
+    }
+};
+
 module.exports = {
     createOrder,
     getMyOrders,
     getAllOrders,
+    getOrderDetails,
 };

@@ -18,9 +18,11 @@ const create = async (clienteId, valorTotal, cartItems) => {
     return novoPedido;
 };
 
-const addPixInfo = async (pedidoId, pixCopyPaste, mercadoPagoId) => {
-    await db.query('UPDATE "pedidos" SET chave_pix = $1, mercado_pago_id = $2 WHERE id = $3', 
-        [pixCopyPaste, mercadoPagoId, pedidoId]);
+const addPixInfo = async (pedidoId, pixCopyPaste, mercadoPagoId, qrCodeBase64) => {
+    await db.query(
+        'UPDATE pedidos SET pix_copia_cola = $1, mercado_pago_id = $2, pix_qrcode_base64 = $3 WHERE id = $4', 
+        [pixCopyPaste, mercadoPagoId, qrCodeBase64, pedidoId]
+    );
 };
 
 const findByClient = async (clienteId) => {
@@ -45,10 +47,38 @@ const updateStatusByMpId = async (mercadoPagoId, status) => {
     return rows[0];
 };
 
+const findByIdAndClientId = async (orderId, clienteId) => {
+    const { rows: pedidoRows } = await db.query(
+        'SELECT * FROM pedidos WHERE id = $1 AND cliente_id = $2',
+        [orderId, clienteId]
+    );
+
+    if (pedidoRows.length === 0) {
+        return null;
+    }
+
+    const { rows: itemsRows } = await db.query(`
+        SELECT 
+            ip.quantidade, 
+            ip.preco_no_momento_da_compra,
+            p.nome,
+            p.url_imagem
+        FROM itens_pedido ip
+        JOIN produtos p ON ip.produto_id = p.id
+        WHERE ip.pedido_id = $1
+    `, [orderId]);
+
+    return {
+        pedido: pedidoRows[0],
+        itens: itemsRows
+    };
+};
+
 module.exports = {
     create,
     addPixInfo,
     findByClient,
     findAll,
     updateStatusByMpId,
+    findByIdAndClientId,
 };

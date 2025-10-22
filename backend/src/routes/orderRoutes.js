@@ -7,5 +7,6 @@ const adminMiddleware = require('../middleware/adminMiddleware');
 router.post('/', authMiddleware, orderController.createOrder);
 router.get('/meus-pedidos', authMiddleware, orderController.getMyOrders);
 router.get('/', adminMiddleware, orderController.getAllOrders);
+router.get('/detalhes/:id', authMiddleware, orderController.getOrderDetails);
 
 module.exports = router;
