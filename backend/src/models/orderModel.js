@@ -1,30 +1,21 @@
 const db = require('../database');
 
 const create = async (clienteId, valorTotal, cartItems) => {
-    const clientDB = await db.connect();
-    try {
-        await clientDB.query('BEGIN');
+    // Inicia criando o pedido para obter um ID
+    const { rows: pedidoRows } = await db.query(
+        'INSERT INTO "pedidos" (cliente_id, valor_total, status) VALUES ($1, $2, $3) RETURNING *',
+        [clienteId, valorTotal, 'pagamento_pendente']
+    );
+    const novoPedido = pedidoRows[0];
 
-        const { rows: pedidoRows } = await clientDB.query(
-            'INSERT INTO "pedidos" (cliente_id, valor_total, status) VALUES ($1, $2, $3) RETURNING *',
-            [clienteId, valorTotal, 'pagamento_pendente']
-        );
-        const novoPedido = pedidoRows[0];
-
-        for (const item of cartItems) {
-            const produto = (await clientDB.query('SELECT preco FROM "produtos" WHERE id = $1', [item.id])).rows[0];
-            await clientDB.query('INSERT INTO "itens_pedido" (pedido_id, produto_id, quantidade, preco_no_momento_da_compra) VALUES ($1, $2, $3, $4)', [novoPedido.id, item.id, item.quantity, produto.preco]);
-            await clientDB.query('UPDATE "produtos" SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2', [item.quantity, item.id]);
-        }
-
-        await clientDB.query('COMMIT');
-        return novoPedido;
-    } catch (error) {
-        await clientDB.query('ROLLBACK');
-        throw error;
-    } finally {
-        clientDB.release();
+    // Em seguida, para cada item do carrinho, insere em "itens_pedido" e atualiza o estoque
+    for (const item of cartItems) {
+        const produto = (await db.query('SELECT preco FROM "produtos" WHERE id = $1', [item.id])).rows[0];
+        await db.query('INSERT INTO "itens_pedido" (pedido_id, produto_id, quantidade, preco_no_momento_da_compra) VALUES ($1, $2, $3, $4)', [novoPedido.id, item.id, item.quantity, produto.preco]);
+        await db.query('UPDATE "produtos" SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2', [item.quantity, item.id]);
     }
+
+    return novoPedido;
 };
 
 const addPixInfo = async (pedidoId, pixCopyPaste, mercadoPagoId) => {
@@ -57,7 +48,7 @@ const updateStatusByMpId = async (mercadoPagoId, status) => {
 module.exports = {
     create,
     addPixInfo,
-    updateStatusByMpId,
     findByClient,
     findAll,
+    updateStatusByMpId,
 };

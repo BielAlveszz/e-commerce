@@ -10,6 +10,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes')
 
 const app = express();
 
@@ -25,5 +26,6 @@ app.use('/api/categorias', categoryRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/avaliacoes', reviewRoutes);
 app.use('/api/webhook', webhookRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 module.exports = app;

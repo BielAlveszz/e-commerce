@@ -1,122 +1,113 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { CashCoin, BoxSeam, Receipt } from 'react-bootstrap-icons'; // Ícones para os cards
 
 const AdminDashboard = () => {
-    // O estado agora armazena o objeto completo que a API retorna
-    const [data, setData] = useState({ products: [], totalPages: 1, currentPage: 1 });
+    const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const { token } = useAuth();
-    const [searchParams] = useSearchParams();
 
-    // Lê o parâmetro 'page' da URL. Se não existir, o valor padrão é 1.
-    const currentPage = parseInt(searchParams.get('page') || '1', 10);
-
-    // Função para buscar os produtos de uma página específica
-    const fetchProducts = (page) => {
-        setLoading(true);
-        // Agora a requisição inclui a página e um limite de 10 itens
-        fetch(`http://localhost:3001/api/produtos?page=${page}&limit=10`)
-            .then(res => res.json())
-            .then(apiData => {
-                setData(apiData);
-                setLoading(false);
-            })
-            .catch(error => {
-                console.error("Erro ao buscar produtos:", error);
-                setLoading(false);
-            });
-    };
-
-    // O useEffect agora é acionado sempre que o 'currentPage' (lido da URL) muda
     useEffect(() => {
-        fetchProducts(currentPage);
-    }, [currentPage]);
-
-    const handleDelete = async (productId) => {
-        if (window.confirm('Tem certeza que deseja deletar este produto?')) {
-            await fetch(`http://localhost:3001/api/produtos/${productId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            // Após deletar, recarrega a página atual para refletir a mudança
-            fetchProducts(currentPage);
-        }
-    };
-    
-    // Função para gerar os botões de paginação
-    const renderPagination = () => {
-        // Se houver apenas 1 página (ou menos), não mostra os botões
-        if (data.totalPages <= 1) {
-            return null;
-        }
-        
-        const pages = [];
-        for (let i = 1; i <= data.totalPages; i++) {
-            pages.push(
-                <li key={i} className={`page-item ${i === data.currentPage ? 'active' : ''}`}>
-                    <Link to={`/admin/dashboard?page=${i}`} className="page-link">{i}</Link>
-                </li>
-            );
-        }
-        return (
-            <nav aria-label="Paginação de produtos">
-                <ul className="pagination mb-0">
-                    {pages}
-                </ul>
-            </nav>
-        );
-    };
+        // Busca as estatísticas da nova rota da API
+        fetch('http://localhost:3001/api/dashboard/stats', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            setStats(data);
+            setLoading(false);
+        })
+        .catch(error => {
+            console.error("Erro ao buscar estatísticas:", error);
+            setLoading(false);
+        });
+    }, [token]);
 
     if (loading) {
-        return <div className="container my-5 text-center"><h2>Carregando produtos...</h2></div>;
+        return <div className="container my-5 text-center"><h2>Carregando dashboard...</h2></div>;
     }
+
+    // Formata os valores monetários
+    const formatCurrency = (value) => {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    };
 
     return (
         <div className="container my-5">
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h1>Painel do Administrador</h1>
-                <div className="d-flex gap-2">
-                    <Link to="/admin/categorias" className="btn btn-secondary">Gerenciar Categorias</Link>
-                    <Link to="/admin/pedidos" className="btn btn-info">Ver Pedidos</Link>
-                    <Link to="/admin/produtos/novo" className="btn btn-primary">Adicionar Novo Produto</Link>
+                <Link to="/admin/produtos/novo" className="btn btn-primary">Adicionar Novo Produto</Link>
+            </div>
+
+            {/* SEÇÃO DE CARDS DE ESTATÍSTICAS */}
+            <div className="row g-4 mb-5">
+                <div className="col-md-4">
+                    <div className="card text-bg-success h-100">
+                        <div className="card-body d-flex align-items-center">
+                            <CashCoin size={48} className="me-3" />
+                            <div>
+                                <h5 className="card-title">Faturamento Total</h5>
+                                <p className="card-text fs-4 fw-bold">{formatCurrency(stats?.faturamento || 0)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="col-md-4">
+                    <div className="card text-bg-info h-100">
+                        <div className="card-body d-flex align-items-center">
+                            <BoxSeam size={48} className="me-3" />
+                            <div>
+                                <h5 className="card-title">Total de Pedidos</h5>
+                                <p className="card-text fs-4 fw-bold">{stats?.total_pedidos || 0}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="col-md-4">
+                    <div className="card text-bg-warning h-100">
+                        <div className="card-body d-flex align-items-center">
+                            <Receipt size={48} className="me-3" />
+                            <div>
+                                <h5 className="card-title">Ticket Médio</h5>
+                                <p className="card-text fs-4 fw-bold">{formatCurrency(stats?.ticket_medio || 0)}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <h2 className="mb-3">Gerenciar Produtos</h2>
+            {/* SEÇÃO DE PEDIDOS RECENTES */}
+            <div className="d-flex justify-content-between align-items-center mb-3">
+                <h2 className="mb-0">Últimos Pedidos</h2>
+                <Link to="/admin/pedidos" className="btn btn-secondary">Ver Todos os Pedidos</Link>
+            </div>
             <div className="card">
                 <div className="card-body">
                     <div className="table-responsive">
                         <table className="table table-hover align-middle">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Nome</th>
-                                    <th>Preço</th>
-                                    <th>Estoque</th>
-                                    <th className="text-end">Ações</th>
+                                    <th>ID do Pedido</th>
+                                    <th>Cliente</th>
+                                    <th>Valor Total</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {data.products.map(product => (
-                                    <tr key={product.id}>
-                                        <td>{product.id}</td>
-                                        <td>{product.nome}</td>
-                                        <td>R$ {parseFloat(product.preco).toFixed(2)}</td>
-                                        <td>{product.quantidade_estoque}</td>
-                                        <td className="text-end">
-                                            <Link to={`/admin/produtos/editar/${product.id}`} className="btn btn-sm btn-secondary me-2">Editar</Link>
-                                            <button onClick={() => handleDelete(product.id)} className="btn btn-sm btn-danger">Deletar</button>
+                                {stats?.ultimos_pedidos?.map(pedido => (
+                                    <tr key={pedido.id}>
+                                        <td>#{pedido.id}</td>
+                                        <td>{pedido.cliente_nome || 'Cliente avulso'}</td>
+                                        <td>{formatCurrency(pedido.valor_total)}</td>
+                                        <td>
+                                            <span className="badge bg-primary text-capitalize">{pedido.status.replace('_', ' ')}</span>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                </div>
-                {/* A paginação é renderizada aqui no rodapé do card */}
-                <div className="card-footer d-flex justify-content-center">
-                    {renderPagination()}
                 </div>
             </div>
         </div>

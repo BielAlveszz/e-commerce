@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext } from 'react';
-import { useAuth } from './AuthContext'; // Precisamos do token para o checkout
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
 
@@ -39,20 +39,22 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // Função de checkout que cria o pedido e retorna os dados
   const checkout = async () => {
     if (cartItems.length === 0 || !token) {
       throw new Error("O carrinho está vazio ou você não está logado.");
     }
+
+    // Guarda uma cópia dos itens do carrinho antes de qualquer coisa
+    const itemsParaPedido = [...cartItems];
 
     try {
       const response = await fetch('http://localhost:3001/api/pedidos', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // Envia o token para a rota protegida
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ cartItems: cartItems })
+        body: JSON.stringify({ cartItems: itemsParaPedido }) // Usa a cópia
       });
 
       if (!response.ok) {
@@ -62,16 +64,14 @@ export const CartProvider = ({ children }) => {
       
       const orderData = await response.json();
       
-      // Limpa o carrinho APENAS após o sucesso da criação do pedido
       setCartItems([]);
       setIsCartOpen(false);
       
-      // Retorna os dados do pedido criado para a página de checkout
-      return orderData.pedido; 
+      // AQUI ESTÁ A MUDANÇA: Retorna o pedido E a cópia dos itens
+      return { pedido: orderData.pedido, cartItems: itemsParaPedido }; 
 
     } catch (error) {
       console.error("Erro no checkout:", error);
-      // Lança o erro para que a página de checkout possa tratá-lo
       throw error; 
     }
   };

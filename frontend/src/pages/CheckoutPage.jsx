@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { Whatsapp } from 'react-bootstrap-icons'; // Ícone do WhatsApp
 
 const CheckoutPage = () => {
     const { cartItems, checkout } = useCart();
@@ -10,13 +11,16 @@ const CheckoutPage = () => {
     const navigate = useNavigate();
     
     const [pedidoCriado, setPedidoCriado] = useState(null);
+    const [itensDoPedido, setItensDoPedido] = useState([]); // Novo estado para guardar os itens do pedido finalizado
     const [loading, setLoading] = useState(false);
 
-    const total = cartItems.reduce((sum, item) => sum + (item.preco * (item.quantity || 1)), 0);
+    // O total agora é pego do pedido criado para garantir consistência
+    const total = pedidoCriado ? parseFloat(pedidoCriado.valor_total).toFixed(2) : (cartItems.reduce((sum, item) => sum + (item.preco * (item.quantity || 1)), 0)).toFixed(2);
 
     useEffect(() => {
+        // A verificação agora é mais simples
         if (cartItems.length === 0 && !pedidoCriado) {
-            toast.error("Seu carrinho está vazio. Adicione itens antes de finalizar a compra.");
+            toast.error("Seu carrinho está vazio.");
             navigate('/');
         }
     }, [cartItems, pedidoCriado, navigate]);
@@ -24,10 +28,11 @@ const CheckoutPage = () => {
     const handleConfirmarPedido = async () => {
         setLoading(true);
         try {
-            // Esta função já chama nosso novo backend
-            const pedido = await checkout();
+            // A função checkout agora retorna tanto o pedido quanto os itens que estavam no carrinho
+            const { pedido, cartItems: items } = await checkout(); 
             if (pedido) {
                 setPedidoCriado(pedido);
+                setItensDoPedido(items); // Guarda os itens do pedido no estado
                 toast.success('Pedido confirmado! Pague com PIX para finalizar.');
             }
         } catch (error) {
@@ -38,25 +43,40 @@ const CheckoutPage = () => {
     };
     
     const copiarCodigoPix = () => {
-        // Agora usamos o campo `qr_code_copia_cola` vindo da API
         if (pedidoCriado?.qr_code_copia_cola) {
             navigator.clipboard.writeText(pedidoCriado.qr_code_copia_cola);
             toast.success('Código PIX copiado!');
         }
     };
 
+    // Função que gera a mensagem completa e redireciona para o WhatsApp
+    const handleWhatsAppRedirect = () => {
+        if (!pedidoCriado || itensDoPedido.length === 0) return;
+
+        const numeroVendedora = process.env.REACT_APP_WHATSAPP_NUMBER;
+        
+        const listaDeProdutos = itensDoPedido.map(item => 
+            `- ${item.quantity}x ${item.nome}`
+        ).join('\n');
+
+        const mensagem = `Olá! Gostaria de combinar a entrega do meu pedido #${pedidoCriado.id}.\n\n*Resumo do Pedido:*\n${listaDeProdutos}\n\n*Total: R$ ${total}*\n\nAguardo seu contato!`;
+        
+        const mensagemCodificada = encodeURIComponent(mensagem);
+        const url = `https://wa.me/${numeroVendedora}?text=${mensagemCodificada}`;
+        window.open(url, '_blank');
+    };
+
     return (
         <div className="container my-5">
             <h1 className="mb-4">Finalizar Pedido</h1>
-            <div className="row g-5">
-                {/* Coluna de Resumo do Pedido (sem alterações) */}
-                <div className="col-md-7">
+            <div className="row g-5 justify-content-center">
+                <div className="col-md-7 col-lg-6">
                     <div className="card">
                         <div className="card-header">
                             <h4>Resumo da Compra</h4>
                         </div>
                         <ul className="list-group list-group-flush">
-                            {cartItems.map(item => (
+                            {(itensDoPedido.length > 0 ? itensDoPedido : cartItems).map(item => (
                                 <li key={item.id} className="list-group-item d-flex justify-content-between align-items-center">
                                     <div>
                                         <h6 className="my-0">{item.nome}</h6>
@@ -67,25 +87,22 @@ const CheckoutPage = () => {
                             ))}
                             <li className="list-group-item d-flex justify-content-between fw-bold fs-5">
                                 <span>Total</span>
-                                <span>R$ {total.toFixed(2)}</span>
+                                <span>R$ {total}</span>
                             </li>
                         </ul>
                     </div>
                 </div>
 
-                {/* Coluna de Pagamento (COM AS MUDANÇAS) */}
-                <div className="col-md-5">
+                <div className="col-md-5 col-lg-5">
                     <div className="card">
                         <div className="card-header">
-                            <h4>Pagamento via PIX</h4>
+                            <h4>Pagamento e Entrega</h4>
                         </div>
                         <div className="card-body text-center">
                             {pedidoCriado ? (
                                 <div>
-                                    <h5>Pague para confirmar seu pedido</h5>
-                                    <p>Aponte a câmera do seu celular ou use o "Copia e Cola".</p>
+                                    <h5 className="mb-3">1. Pague com PIX para confirmar</h5>
                                     <div className="my-3 d-flex justify-content-center">
-                                        {/* MUDANÇA 1: Exibimos a imagem do QR Code em Base64 */}
                                         {pedidoCriado.qr_code_base64 && (
                                             <img 
                                                 src={`data:image/jpeg;base64,${pedidoCriado.qr_code_base64}`}
@@ -94,16 +111,24 @@ const CheckoutPage = () => {
                                             />
                                         )}
                                     </div>
-                                    <div className="input-group">
-                                        {/* MUDANÇA 2: Usamos o novo campo para o Copia e Cola */}
+                                    <div className="input-group mb-3">
                                         <input type="text" className="form-control" value={pedidoCriado.qr_code_copia_cola || ''} readOnly />
                                         <button className="btn btn-outline-secondary" onClick={copiarCodigoPix}>Copiar</button>
                                     </div>
-                                    <Link to="/minha-conta" className="btn btn-secondary w-100 mt-3">Ver Meus Pedidos</Link>
+                                    
+                                    <hr />
+
+                                    <h5 className="mt-4">2. Combine a Entrega</h5>
+                                    <p className="small text-muted">Após o pagamento, clique abaixo para falar com a vendedora e combinar a entrega.</p>
+                                    <button className="btn btn-success w-100" onClick={handleWhatsAppRedirect}>
+                                        <Whatsapp className="me-2" /> Combinar Entrega via WhatsApp
+                                    </button>
+
+                                    <Link to="/minha-conta" className="btn btn-light w-100 mt-3">Ver Histórico de Pedidos</Link>
                                 </div>
                             ) : (
                                 <div>
-                                    <p>Confirme seu pedido para gerar o código PIX para pagamento.</p>
+                                    <p>Confirme seu pedido para gerar o código PIX e combinar a entrega.</p>
                                     <p><strong>Comprando como:</strong> {user?.nome}</p>
                                     <div className="d-grid">
                                         <button 

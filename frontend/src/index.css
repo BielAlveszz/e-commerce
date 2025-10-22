@@ -1,6 +1,12 @@
 /* Importação da fonte do Google Fonts (adicione também no index.html) */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
 
+/* Importação da biblioteca de Skeleton */
+@import 'react-loading-skeleton/dist/skeleton.css';
+
+/* Importação da fonte do Google Fonts (adicione também no index.html) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
+
 body {
   font-family: 'Inter', sans-serif;
   background-color: #f8f9fa; /* Um cinza bem claro para o fundo */
