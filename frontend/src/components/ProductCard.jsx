@@ -26,7 +26,7 @@ const ProductCard = ({ product }) => {
               <span className="card-text text-muted text-decoration-line-through me-2">
                 R$ {parseFloat(product.preco).toFixed(2)}
               </span>
-              <p className="card-text fs-4 fw-bold text-danger d-inline">
+              <p className="card-text fs-4 fw-bold d-inline" style={{ color: 'var(--meby-rosa-seco)' }}>
                 R$ {parseFloat(product.preco_promocional).toFixed(2)}
               </p>
             </>

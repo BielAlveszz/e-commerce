@@ -50,8 +50,18 @@ const Header = () => {
     <nav className="navbar navbar-expand-lg bg-white shadow-sm sticky-top py-3">
       <div className="container">
         <Link to="/" className="navbar-brand d-flex align-items-center gap-2">
-            <div style={{ height: '32px', width: '32px', borderRadius: '50%', backgroundColor: '#343a40' }}></div>
-            <span className="fw-bold fs-5">Meby Cosméticos</span>
+            {/* AJUSTE: Nome da loja em vez da logo */}
+            <span 
+              className="fw-bold" 
+              style={{ 
+                fontSize: '24px',
+                color: '#5a1a1a', // Cor bordô da marca
+                fontFamily: "'Playfair Display', serif",
+                letterSpacing: '1px'
+              }}
+            >
+              Meby
+            </span>
         </Link>
         
         <div className="flex-grow-1 mx-4 d-none d-lg-block">

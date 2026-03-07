@@ -36,8 +36,8 @@ const Cart = () => {
         className="cart-offcanvas is-open"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="offcanvas-header border-bottom">
-          <h5 className="offcanvas-title">Seu Carrinho</h5>
+        <div className="offcanvas-header border-bottom" style={{ borderColor: 'var(--meby-rosa-claro)' }}>
+          <h5 className="offcanvas-title" style={{ color: 'var(--meby-texto-escuro)' }}>Seu Carrinho</h5>
           <button type="button" className="btn-close" onClick={() => setIsCartOpen(false)}></button>
         </div>
         <div className="offcanvas-body d-flex flex-column">
@@ -60,22 +60,22 @@ const Cart = () => {
                       <p className="fw-semibold mb-1">{item.nome}</p>
                       <p className="text-muted small">R$ {parseFloat(item.preco).toFixed(2)}</p>
                     </div>
-                    <div className="d-flex align-items-center gap-2 border rounded p-1">
-                      <button className="btn btn-sm btn-light" onClick={() => updateQuantity(item.id, item.quantity - 1)}><DashLg size={16}/></button>
-                      <span className="fw-bold px-2">{item.quantity}</span>
-                      <button className="btn btn-sm btn-light" onClick={() => updateQuantity(item.id, item.quantity + 1)}><PlusLg size={16}/></button>
+                    <div className="d-flex align-items-center gap-2 rounded p-1" style={{ border: '1px solid var(--meby-rosa-claro)' }}>
+                      <button className="btn btn-sm" style={{ backgroundColor: 'var(--meby-rosa-claro)', color: 'var(--meby-texto-escuro)' }} onClick={() => updateQuantity(item.id, item.quantity - 1)}><DashLg size={16}/></button>
+                      <span className="fw-bold px-2" style={{ color: 'var(--meby-texto-escuro)' }}>{item.quantity}</span>
+                      <button className="btn btn-sm" style={{ backgroundColor: 'var(--meby-rosa-claro)', color: 'var(--meby-texto-escuro)' }} onClick={() => updateQuantity(item.id, item.quantity + 1)}><PlusLg size={16}/></button>
                     </div>
-                    <button className="btn btn-sm btn-outline-danger" onClick={() => removeFromCart(item.id)}><XLg size={16}/></button>
+                    <button className="btn btn-sm" style={{ borderColor: 'var(--meby-rosa-seco)', color: 'var(--meby-rosa-seco)' }} onClick={() => removeFromCart(item.id)}><XLg size={16}/></button>
                   </div>
                 ))}
               </div>
-              <div className="border-top p-3 bg-light">
-                <div className="d-flex justify-content-between fs-5 fw-bold">
+              <div className="border-top p-3" style={{ backgroundColor: 'var(--meby-rosa-claro)', borderColor: 'var(--meby-rosa-claro)' }}>
+                <div className="d-flex justify-content-between fs-5 fw-bold" style={{ color: 'var(--meby-texto-escuro)' }}>
                   <span>Total:</span>
                   <span>R$ {total.toFixed(2)}</span>
                 </div>
                 <div className="d-grid mt-3">
-                  <button onClick={handleCheckoutClick} className="btn btn-dark btn-lg">
+                  <button onClick={handleCheckoutClick} className="btn btn-dark-custom btn-lg">
                     {isAuthenticated ? 'Ir para o Pagamento' : 'Fazer Login para Continuar'}
                   </button>
                 </div>

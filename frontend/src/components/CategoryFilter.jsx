@@ -35,14 +35,14 @@ const CategoryFilter = ({ currentView }) => {
     return (
         <div className="container mb-5">
             <div className="d-flex justify-content-center flex-wrap gap-2">
-                <Link to={baseUrl} className={`btn ${!currentCategory ? 'btn-dark' : 'btn-outline-dark'}`}>
+                <Link to={baseUrl} className={`btn ${!currentCategory ? 'btn-dark-custom' : 'btn-outline-custom'}`}>
                     Todos
                 </Link>
                 {categorias.map(categoria => (
                     <Link 
                         key={categoria.id} 
                         to={`${baseUrl}&categoria=${categoria.nome}`}
-                        className={`btn ${currentCategory === categoria.nome ? 'btn-dark' : 'btn-outline-dark'}`}
+                        className={`btn ${currentCategory === categoria.nome ? 'btn-dark-custom' : 'btn-outline-custom'}`}
                     >
                         {categoria.nome}
                     </Link>
@@ -50,14 +50,14 @@ const CategoryFilter = ({ currentView }) => {
             </div>
 
             {selectedCategoryId && (
-                <div className="d-flex justify-content-center flex-wrap gap-2 mt-3 pt-3 border-top">
+                <div className="d-flex justify-content-center flex-wrap gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--meby-rosa-claro)' }}>
                     {subCategorias
                         .filter(sub => sub.categoria_id === selectedCategoryId)
                         .map(sub => (
                             <Link
                                 key={sub.id}
                                 to={`${baseUrl}&categoria=${currentCategory}&subcategoria=${sub.nome}`}
-                                className={`btn btn-sm ${currentSubCategory === sub.nome ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                                className={`btn btn-sm ${currentSubCategory === sub.nome ? 'btn-dark-custom' : 'btn-outline-custom'}`}
                             >
                                 {sub.nome}
                             </Link>

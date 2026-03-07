@@ -1,63 +1,104 @@
-/* Importação da fonte do Google Fonts (adicione também no index.html) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
+/* Importação da fonte do Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;700;800&display=swap');
 
 /* Importação da biblioteca de Skeleton */
 @import 'react-loading-skeleton/dist/skeleton.css';
 
-/* Importação da fonte do Google Fonts (adicione também no index.html) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
+/* Cores da Paleta Meby Cosméticos */
+:root {
+  --meby-rosa-seco: #c9a8a0;
+  --meby-bege-quente: #e8d5c4;
+  --meby-azul-acinzentado: #b8c5d6;
+  --meby-rosa-claro: #f5e6e1;
+  --meby-dourado: #d4a574;
+  --meby-texto-escuro: #5a4a45;
+}
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #f8f9fa; /* Um cinza bem claro para o fundo */
+  background-color: #faf8f6; /* Fundo muito claro com toque de rosa */
+  color: var(--meby-texto-escuro);
 }
 
 /* --- Componentes Customizados --- */
 
 /* Logo no Header */
 .logo-icon {
-  height: 2rem; /* 32px */
-  width: 2rem; /* 32px */
-  border-radius: 9999px;
-  background-color: #343a40; /* Cinza escuro */
+  height: 2.5rem; /* 40px */
+  width: 2.5rem; /* 40px */
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--meby-rosa-seco) 0%, var(--meby-bege-quente) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--meby-dourado);
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+/* Header */
+.navbar {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid var(--meby-rosa-claro);
+}
+
+.navbar-brand {
+  color: var(--meby-texto-escuro) !important;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
 }
 
 /* Botões do Hero */
 .btn-dark-custom {
-  background-color: #212529; /* Preto/Cinza bem escuro */
+  background-color: var(--meby-rosa-seco);
   color: #ffffff;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.2s ease-in-out;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.3s ease-in-out;
+  border: none;
 }
+
 .btn-dark-custom:hover {
-  background-color: #495057; /* Cinza um pouco mais claro */
+  background-color: var(--meby-dourado);
   color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(201, 168, 160, 0.3);
 }
+
 .btn-outline-custom {
-  border: 1px solid #dee2e6; /* Borda cinza clara */
-  color: #212529;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  border: 2px solid var(--meby-rosa-seco);
+  color: var(--meby-rosa-seco);
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.3s ease-in-out;
+  background-color: transparent;
 }
+
 .btn-outline-custom:hover {
-  background-color: #f8f9fa; /* Cinza bem claro */
-  color: #000000;
+  background-color: var(--meby-rosa-seco);
+  color: #ffffff;
+  transform: translateY(-2px);
 }
 
 /* Estilo do Card de Produto */
 .product-card {
-  transition: box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out;
-  border: 1px solid #e9ecef; /* Borda bem sutil */
+  transition: all 0.3s ease-in-out;
+  border: 1px solid var(--meby-rosa-claro);
+  border-radius: 0.75rem;
+  background-color: #ffffff;
 }
+
 .product-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  transform: translateY(-8px);
+  box-shadow: 0 12px 30px rgba(201, 168, 160, 0.2);
+  border-color: var(--meby-rosa-seco);
 }
+
 .product-card .card-img-top {
   aspect-ratio: 1 / 1;
   object-fit: cover;
+  border-radius: 0.75rem 0.75rem 0 0;
 }
 
 /* Fundo escuro (Backdrop) */
@@ -67,16 +108,16 @@ body {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.5); /* Preto com 50% de opacidade */
+  background-color: rgba(0, 0, 0, 0.4);
   z-index: 1040;
   opacity: 0;
-  visibility: hidden; /* Começa escondido */
+  visibility: hidden;
   transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .cart-backdrop.is-open {
   opacity: 1;
-  visibility: visible; /* Fica visível quando aberto */
+  visibility: visible;
 }
 
 /* Painel do Carrinho */
@@ -85,24 +126,26 @@ body {
   top: 0;
   right: 0;
   width: 400px;
-  max-width: 90vw; /* Garante que não ocupe a tela toda em celulares */
+  max-width: 90vw;
   height: 100%;
-  background-color: white; /* FUNDO BRANCO! */
+  background-color: #ffffff;
   z-index: 1045;
-  transform: translateX(100%); /* Começa fora da tela, à direita */
+  transform: translateX(100%);
   transition: transform 0.3s ease-in-out;
   display: flex;
   flex-direction: column;
+  border-left: 1px solid var(--meby-rosa-claro);
 }
 
 .cart-offcanvas.is-open {
-  transform: translateX(0); /* Desliza para dentro da tela quando aberto */
+  transform: translateX(0);
 }
 
+/* Hero Banner */
 .hero-banner {
   position: relative;
   width: 100%;
-  height: 60vh; /* Altura do banner, ajuste conforme necessário */
+  height: 60vh;
   max-height: 500px;
   background-size: cover;
   background-position: center;
@@ -111,6 +154,7 @@ body {
   justify-content: center;
   text-align: center;
   color: white;
+  border-radius: 0 0 1rem 1rem;
 }
 
 .hero-banner::after {
@@ -120,7 +164,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.4); /* Sombra para dar legibilidade ao texto */
+  background: linear-gradient(135deg, rgba(201, 168, 160, 0.3) 0%, rgba(184, 197, 214, 0.2) 100%);
 }
 
 .hero-content {
@@ -128,4 +172,113 @@ body {
   z-index: 2;
   max-width: 600px;
   padding: 20px;
+}
+
+.hero-content h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.hero-content p {
+  font-size: 1.1rem;
+  color: #ffffff;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Inputs e Formulários */
+.form-control {
+  border: 1px solid var(--meby-rosa-claro);
+  border-radius: 0.5rem;
+  transition: all 0.3s ease-in-out;
+}
+
+.form-control:focus {
+  border-color: var(--meby-rosa-seco);
+  box-shadow: 0 0 0 0.2rem rgba(201, 168, 160, 0.25);
+}
+
+.input-group-text {
+  background-color: var(--meby-rosa-claro) !important;
+  border-color: var(--meby-rosa-claro) !important;
+  color: var(--meby-rosa-seco) !important;
+}
+
+/* Badge (Notificações) */
+.badge {
+  background-color: var(--meby-rosa-seco) !important;
+  font-weight: 600;
+}
+
+/* Botões de Ação */
+.btn-light {
+  background-color: var(--meby-rosa-claro);
+  color: var(--meby-texto-escuro);
+  border: none;
+  transition: all 0.3s ease-in-out;
+}
+
+.btn-light:hover {
+  background-color: var(--meby-bege-quente);
+  color: var(--meby-texto-escuro);
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+  border: 1px solid var(--meby-rosa-claro);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item:hover {
+  background-color: var(--meby-rosa-claro);
+  color: var(--meby-texto-escuro);
+}
+
+/* Links */
+a {
+  color: var(--meby-rosa-seco);
+  text-decoration: none;
+  transition: color 0.3s ease-in-out;
+}
+
+a:hover {
+  color: var(--meby-dourado);
+}
+
+/* Títulos */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--meby-texto-escuro);
+  font-weight: 700;
+}
+
+/* Separadores */
+hr {
+  border-color: var(--meby-rosa-claro);
+}
+
+/* Sombras Suaves */
+.shadow-sm {
+  box-shadow: 0 2px 8px rgba(201, 168, 160, 0.1) !important;
+}
+
+.shadow {
+  box-shadow: 0 4px 12px rgba(201, 168, 160, 0.15) !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .hero-content h1 {
+    font-size: 1.8rem;
+  }
+
+  .hero-content p {
+    font-size: 0.95rem;
+  }
+
+  .cart-offcanvas {
+    width: 100%;
+  }
 }
