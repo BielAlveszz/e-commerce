@@ -48,10 +48,9 @@ router.get('/:id', limiter, sanitizeInput, getProductById);
 router.post(
   '/',
   limiter,
-  authMiddleware, // Verificar se está autenticado
-  adminMiddleware, // Verificar se é admin
-  sanitizeInput, // Sanitizar entrada
-  validateProduct, // Validar dados do produto
+  adminMiddleware, // Já verifica se está autenticado E se é admin
+  sanitizeInput,
+  validateProduct,
   createProduct
 );
 
@@ -63,10 +62,9 @@ router.post(
 router.put(
   '/:id',
   limiter,
-  authMiddleware,
-  adminMiddleware,
+  adminMiddleware, // Já verifica se está autenticado E se é admin
   sanitizeInput,
-  validateProduct, // Validação também para PUT
+  validateProduct, 
   updateProduct
 );
 
@@ -77,8 +75,7 @@ router.put(
 router.delete(
   '/:id',
   limiter,
-  authMiddleware,
-  adminMiddleware,
+  adminMiddleware, // Já verifica se está autenticado E se é admin
   sanitizeInput,
   deleteProduct
 );

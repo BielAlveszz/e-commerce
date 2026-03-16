@@ -1,5 +1,4 @@
 const OrderModel = require('../models/orderModel');
-const ProductModel = require('../models/productModel');
 const { MercadoPagoConfig, Payment } = require('mercadopago');
 
 const client = new MercadoPagoConfig({ 
@@ -16,23 +15,15 @@ const createOrder = async (req, res) => {
   
     try {
         if (!req.user.cpf) {
-            throw new Error("Cadastro incompleto. Por favor, adicione seu CPF na sua conta para finalizar a compra.");
-        }
-
-        let valorTotal = 0;
-        for (const item of cartItems) {
-            const produtoNoBanco = await ProductModel.findById(item.id);
-            if (!produtoNoBanco || produtoNoBanco.quantidade_estoque < item.quantity) {
-                throw new Error(`Produto "${item.nome}" está fora de estoque!`);
-            }
-            valorTotal += parseFloat(produtoNoBanco.preco) * item.quantity;
+            return res.status(400).json({ message: "Cadastro incompleto. Por favor, adicione seu CPF na sua conta para finalizar a compra."});
         }
         
-        const novoPedido = await OrderModel.create(clienteId, valorTotal, cartItems);
+        // Chamamos a função 'create' que fará a transação de bloqueio de estoque
+        const novoPedido = await OrderModel.create(clienteId, cartItems);
 
         const payment = new Payment(client);
         const body = {
-            transaction_amount: Number(valorTotal.toFixed(2)),
+            transaction_amount: Number(novoPedido.valor_total),
             description: `Pedido #${novoPedido.id} - Meby Cosméticos`,
             payment_method_id: 'pix',
             payer: {
@@ -53,7 +44,8 @@ const createOrder = async (req, res) => {
         });
     } catch (err) {
         console.error("ERRO AO PROCESSAR PEDIDO:", err.cause || err.message);
-        res.status(500).json({ message: "Ocorreu um erro ao processar o pedido: " + err.message });
+        // Se a mensagem vier do erro da transação (ex: estoque), repassamos amigavelmente
+        res.status(400).json({ message: err.message || "Ocorreu um erro ao processar o pedido." });
     }
 };
 

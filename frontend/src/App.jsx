@@ -21,6 +21,7 @@ import AdminProductForm from './pages/AdminProductForm';
 import AdminCategoryPage from './pages/AdminCategoryPage';
 
 import './index.css';
+import AdminRoute from './components/AdminRoute';
 
 function App() {
   return (
@@ -42,9 +43,9 @@ function App() {
       <Route 
         path="/admin" 
         element={
-          <ProtectedRoute>
+          <AdminRoute>
             <AdminLayout />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       >
         <Route path="dashboard" element={<AdminDashboard />} />

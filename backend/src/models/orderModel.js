@@ -1,21 +1,72 @@
+// Assumindo que seu '../database' exporta um Pool do pacote 'pg'
 const db = require('../database');
 
-const create = async (clienteId, valorTotal, cartItems) => {
-    // Inicia criando o pedido para obter um ID
-    const { rows: pedidoRows } = await db.query(
-        'INSERT INTO "pedidos" (cliente_id, valor_total, status) VALUES ($1, $2, $3) RETURNING *',
-        [clienteId, valorTotal, 'pagamento_pendente']
-    );
-    const novoPedido = pedidoRows[0];
+const create = async (clienteId, cartItems) => {
+    // 1. Pegamos uma conexão exclusiva do pool para iniciar a transação
+    const client = await db.connect();
+    
+    try {
+        await client.query('BEGIN'); // INICIA A TRANSAÇÃO
 
-    // Em seguida, para cada item do carrinho, insere em "itens_pedido" e atualiza o estoque
-    for (const item of cartItems) {
-        const produto = (await db.query('SELECT preco FROM "produtos" WHERE id = $1', [item.id])).rows[0];
-        await db.query('INSERT INTO "itens_pedido" (pedido_id, produto_id, quantidade, preco_no_momento_da_compra) VALUES ($1, $2, $3, $4)', [novoPedido.id, item.id, item.quantity, produto.preco]);
-        await db.query('UPDATE "produtos" SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2', [item.quantity, item.id]);
+        let valorTotal = 0;
+        const itensValidados = [];
+
+        // 2. Checagem de estoque e bloqueio (FOR UPDATE)
+        for (const item of cartItems) {
+            // O "FOR UPDATE" tranca a linha deste produto no banco até o final da transação.
+            // Impede compras simultâneas do mesmo produto.
+            const { rows } = await client.query(
+                'SELECT preco, quantidade_estoque, nome FROM produtos WHERE id = $1 FOR UPDATE',
+                [item.id]
+            );
+
+            if (rows.length === 0) {
+                throw new Error(`Produto não encontrado (ID: ${item.id}).`);
+            }
+
+            const produtoNoBanco = rows[0];
+
+            if (produtoNoBanco.quantidade_estoque < item.quantity) {
+                throw new Error(`O produto "${produtoNoBanco.nome}" não tem estoque suficiente.`);
+            }
+
+            valorTotal += parseFloat(produtoNoBanco.preco) * item.quantity;
+            
+            itensValidados.push({
+                ...item,
+                preco_no_momento_da_compra: produtoNoBanco.preco
+            });
+        }
+
+        // 3. Cria o pedido mestre
+        const { rows: pedidoRows } = await client.query(
+            'INSERT INTO pedidos (cliente_id, valor_total, status) VALUES ($1, $2, $3) RETURNING *',
+            [clienteId, valorTotal, 'pagamento_pendente']
+        );
+        const novoPedido = pedidoRows[0];
+
+        // 4. Salva os itens e subtrai o estoque com segurança
+        for (const item of itensValidados) {
+            await client.query(
+                'INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_no_momento_da_compra) VALUES ($1, $2, $3, $4)',
+                [novoPedido.id, item.id, item.quantity, item.preco_no_momento_da_compra]
+            );
+
+            await client.query(
+                'UPDATE produtos SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2',
+                [item.quantity, item.id]
+            );
+        }
+
+        await client.query('COMMIT'); // CONFIRMA E SALVA TUDO
+        return novoPedido;
+
+    } catch (error) {
+        await client.query('ROLLBACK'); // SE DEU ERRO, DESFAZ TUDO (não cobra, não cria pedido e não baixa estoque)
+        throw error;
+    } finally {
+        client.release(); // Devolve a conexão para o banco de dados
     }
-
-    return novoPedido;
 };
 
 const addPixInfo = async (pedidoId, pixCopyPaste, mercadoPagoId, qrCodeBase64) => {
