@@ -1,4 +1,16 @@
-const xss = require('xss'); // <-- Adicionada a biblioteca de sanitização
+/**
+ * Sanitização simples contra XSS sem dependência externa.
+ * Remove tags HTML e atributos perigosos de strings.
+ */
+const sanitizeString = (str) => {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+};
 
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -123,8 +135,7 @@ const validateMercadoPago = (req, res, next) => {
 const sanitizeInput = (req, res, next) => {
   const sanitize = (obj) => {
     if (typeof obj === 'string') {
-      // Usa a biblioteca xss para limpar strings (bloqueia scripts <script>, onload=, javascript:, etc)
-      return xss(obj.trim());
+      return sanitizeString(obj.trim());
     }
     if (typeof obj === 'object' && obj !== null) {
       Object.keys(obj).forEach((key) => {

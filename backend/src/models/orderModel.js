@@ -1,7 +1,7 @@
 // Assumindo que seu '../database' exporta um Pool do pacote 'pg'
 const db = require('../database');
 
-const create = async (clienteId, cartItems) => {
+const create = async (clienteId, cartItems, cupom = null) => {
     // 1. Pegamos uma conexão exclusiva do pool para iniciar a transação
     const client = await db.connect();
     
@@ -38,14 +38,18 @@ const create = async (clienteId, cartItems) => {
             });
         }
 
-        // 3. Cria o pedido mestre
+        // 3. Aplica desconto do cupom se existir
+        const desconto = cupom ? Math.min(cupom.desconto, valorTotal) : 0;
+        const valorFinal = parseFloat((valorTotal - desconto).toFixed(2));
+
+        // 4. Cria o pedido mestre
         const { rows: pedidoRows } = await client.query(
             'INSERT INTO pedidos (cliente_id, valor_total, status) VALUES ($1, $2, $3) RETURNING *',
-            [clienteId, valorTotal, 'pagamento_pendente']
+            [clienteId, valorFinal, 'pagamento_pendente']
         );
         const novoPedido = pedidoRows[0];
 
-        // 4. Salva os itens e subtrai o estoque com segurança
+        // 5. Salva os itens e subtrai o estoque com segurança
         for (const item of itensValidados) {
             await client.query(
                 'INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_no_momento_da_compra) VALUES ($1, $2, $3, $4)',
@@ -76,26 +80,81 @@ const addPixInfo = async (pedidoId, pixCopyPaste, mercadoPagoId, qrCodeBase64) =
     );
 };
 
-const findByClient = async (clienteId) => {
-    const { rows } = await db.query('SELECT * FROM pedidos WHERE cliente_id = $1 ORDER BY criado_em DESC', [clienteId]);
+const findByClient = async (clienteId, search) => {
+    const params = [clienteId];
+    let whereExtra = '';
+
+    if (search && search.trim()) {
+        params.push('%' + search.trim() + '%');
+        whereExtra = ' AND (p.id::text ILIKE $' + params.length + ' OR pr.nome ILIKE $' + params.length + ')';
+    }
+
+    const query = `
+        SELECT
+            p.id,
+            p.valor_total,
+            p.status,
+            p.criado_em,
+            p.pix_copia_cola,
+            p.pix_qrcode_base64,
+            STRING_AGG(pr.nome, ', ' ORDER BY pr.nome) AS produtos_resumo
+        FROM pedidos p
+        LEFT JOIN itens_pedido ip ON ip.pedido_id = p.id
+        LEFT JOIN produtos pr     ON pr.id = ip.produto_id
+        WHERE p.cliente_id = $1
+        ${whereExtra}
+        GROUP BY p.id
+        ORDER BY p.criado_em DESC
+    `;
+
+    const { rows } = await db.query(query, params);
     return rows;
 };
 
-const findAll = async () => {
+const findAll = async (page = 1, limit = 20) => {
+    const offset = (page - 1) * limit;
     const { rows } = await db.query(`
         SELECT p.id, p.valor_total, p.status, p.criado_em, c.nome AS cliente_nome, c.email AS cliente_email
         FROM pedidos p LEFT JOIN clientes c ON p.cliente_id = c.id
         ORDER BY p.criado_em DESC
-    `);
+        LIMIT $1 OFFSET $2
+    `, [limit, offset]);
     return rows;
 };
 
 const updateStatusByMpId = async (mercadoPagoId, status) => {
-    const { rows } = await db.query(
-        'UPDATE pedidos SET status = $1 WHERE mercado_pago_id = $2 RETURNING *',
-        [status, mercadoPagoId]
-    );
-    return rows[0];
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        const { rows } = await client.query(
+            'UPDATE pedidos SET status = $1 WHERE mercado_pago_id = $2 RETURNING *',
+            [status, mercadoPagoId]
+        );
+        const pedido = rows[0];
+
+        // Se o pedido foi cancelado ou expirado, devolve o estoque
+        if (pedido && ['cancelado', 'expirado'].includes(status)) {
+            const { rows: itens } = await client.query(
+                'SELECT produto_id, quantidade FROM itens_pedido WHERE pedido_id = $1',
+                [pedido.id]
+            );
+            for (const item of itens) {
+                await client.query(
+                    'UPDATE produtos SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2',
+                    [item.quantidade, item.produto_id]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+        return pedido;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
 };
 
 const findByIdAndClientId = async (orderId, clienteId) => {
@@ -125,6 +184,51 @@ const findByIdAndClientId = async (orderId, clienteId) => {
     };
 };
 
+
+// Atualiza status pelo ID do pedido (usado pelo admin)
+// Se cancelar um pedido pago, devolve o estoque
+const updateStatusById = async (pedidoId, novoStatus) => {
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Busca o status atual antes de alterar
+        const { rows: atual } = await client.query(
+            'SELECT status FROM pedidos WHERE id = $1',
+            [pedidoId]
+        );
+        if (atual.length === 0) throw new Error('Pedido não encontrado.');
+
+        const { rows } = await client.query(
+            'UPDATE pedidos SET status = $1 WHERE id = $2 RETURNING *',
+            [novoStatus, pedidoId]
+        );
+        const pedido = rows[0];
+
+        // Se cancelar um pedido que já estava pago, devolve estoque
+        if (novoStatus === 'cancelado' && atual[0].status === 'pago') {
+            const { rows: itens } = await client.query(
+                'SELECT produto_id, quantidade FROM itens_pedido WHERE pedido_id = $1',
+                [pedidoId]
+            );
+            for (const item of itens) {
+                await client.query(
+                    'UPDATE produtos SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2',
+                    [item.quantidade, item.produto_id]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+        return pedido;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
 module.exports = {
     create,
     addPixInfo,
@@ -132,4 +236,5 @@ module.exports = {
     findAll,
     updateStatusByMpId,
     findByIdAndClientId,
+    updateStatusById,
 };

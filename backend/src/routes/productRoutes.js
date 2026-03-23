@@ -6,76 +6,59 @@ const {
   createProduct,
   updateProduct,
   deleteProduct,
+  getOnSaleProducts,
+  getBestsellerProducts,
+  getRelatedProducts,
+  updateEstoque,
 } = require('../controllers/productController');
 
-const {
-  validateProduct,
-  sanitizeInput,
-} = require('../middlewares/validationMiddleware');
-
-const { authMiddleware, adminMiddleware } = require('../middlewares/authMiddleware');
+const { validateProduct, sanitizeInput } = require('../middleware/validationMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
 const rateLimit = require('express-rate-limit');
 
-/**
- * Rate Limiting para proteger contra brute force
- */
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // Máximo de 100 requisições por IP
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: 'Muitas requisições deste IP, tente novamente mais tarde',
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-/**
- * GET /api/products
- * Obter todos os produtos com paginação e filtros
- * Query params: page, limit, category, search, sort
- */
 router.get('/', limiter, sanitizeInput, getAllProducts);
-
-/**
- * GET /api/products/:id
- * Obter um produto específico por ID
- */
+router.get('/ofertas', limiter, getOnSaleProducts);
+router.get('/destaques', limiter, getBestsellerProducts);
+router.get('/:id/relacionados', limiter, getRelatedProducts);
 router.get('/:id', limiter, sanitizeInput, getProductById);
 
-/**
- * POST /api/products
- * Criar um novo produto (apenas admin)
- * Body: { name, price, category, description?, stock?, image_url? }
- */
 router.post(
   '/',
   limiter,
-  adminMiddleware, // Já verifica se está autenticado E se é admin
+  adminMiddleware,
   sanitizeInput,
   validateProduct,
   createProduct
 );
 
-/**
- * PUT /api/products/:id
- * Atualizar um produto (apenas admin)
- * Body: { name?, price?, category?, description?, stock?, image_url? }
- */
 router.put(
   '/:id',
   limiter,
-  adminMiddleware, // Já verifica se está autenticado E se é admin
+  adminMiddleware,
   sanitizeInput,
-  validateProduct, 
+  validateProduct,
   updateProduct
 );
 
-/**
- * DELETE /api/products/:id
- * Deletar um produto (apenas admin)
- */
+router.patch(
+  '/:id/estoque',
+  limiter,
+  adminMiddleware,
+  updateEstoque
+);
+
 router.delete(
   '/:id',
   limiter,
-  adminMiddleware, // Já verifica se está autenticado E se é admin
+  adminMiddleware,
   sanitizeInput,
   deleteProduct
 );

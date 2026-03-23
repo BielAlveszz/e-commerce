@@ -76,6 +76,43 @@ const getBestsellerProducts = async (req, res) => {
     }
 };
 
+const getRelatedProducts = async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Primeiro busca a sub_categoria_id do produto
+        const product = await ProductModel.findById(id);
+        if (!product) {
+            return res.status(404).json({ message: 'Produto não encontrado.' });
+        }
+        const related = await ProductModel.findRelated(id, product.sub_categoria_id);
+        res.json({ products: related });
+    } catch (err) {
+        console.error('Erro ao buscar produtos relacionados:', err);
+        res.status(500).json({ message: 'Erro no servidor.' });
+    }
+};
+
+
+// PATCH /api/produtos/:id/estoque — ajuste rápido de estoque pelo admin
+const updateEstoque = async (req, res) => {
+    const { id } = req.params;
+    const { quantidade } = req.body;
+
+    if (typeof quantidade !== 'number' || !Number.isInteger(quantidade) || quantidade < 0) {
+        return res.status(400).json({ message: 'Quantidade deve ser um número inteiro não-negativo.' });
+    }
+
+    try {
+        const produto = await ProductModel.updateEstoque(id, quantidade);
+        if (!produto) return res.status(404).json({ message: 'Produto não encontrado.' });
+        res.json({ message: 'Estoque atualizado.', produto });
+    } catch (err) {
+        console.error('Erro ao atualizar estoque:', err);
+        res.status(500).json({ message: 'Erro ao atualizar estoque.' });
+    }
+};
+
+
 module.exports = {
     getAllProducts,
     getProductById,
@@ -84,4 +121,6 @@ module.exports = {
     createProduct,
     updateProduct,
     deleteProduct,
+    getRelatedProducts,
+    updateEstoque,
 };

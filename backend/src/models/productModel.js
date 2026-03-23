@@ -115,6 +115,30 @@ const findLatest = async () => {
     return { products: rows };
 };
 
+const updateEstoque = async (id, quantidade) => {
+    const { rows } = await db.query(
+        'UPDATE produtos SET quantidade_estoque = $1 WHERE id = $2 RETURNING id, nome, quantidade_estoque',
+        [quantidade, id]
+    );
+    return rows[0];
+};
+
+
+const findRelated = async (produtoId, subCategoriaId, limit = 4) => {
+    // Busca produtos da mesma sub-categoria, excluindo o produto atual
+    const { rows } = await db.query(`
+        SELECT id, nome, preco, preco_promocional, url_imagem, quantidade_estoque
+        FROM produtos
+        WHERE sub_categoria_id = $1
+          AND id != $2
+          AND esta_ativo = TRUE
+        ORDER BY RANDOM()
+        LIMIT $3
+    `, [subCategoriaId, produtoId, limit]);
+    return rows;
+};
+
+
 module.exports = {
     findAll,
     findById,
@@ -124,4 +148,6 @@ module.exports = {
     create,
     update,
     remove,
+    findRelated,
+    updateEstoque,
 };
