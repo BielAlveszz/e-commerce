@@ -19,7 +19,17 @@ const cupomRoutes    = require('./routes/cupomRoutes');
 
 const app = express();
 
-// 1. HELMET — headers de segurança HTTP
+// 1. HTTPS forçado em produção
+// Railway e outros provedores enviam o header x-forwarded-proto
+app.set('trust proxy', 1);
+app.use((req, res, next) => {
+    if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+        return res.redirect(301, 'https://' + req.headers.host + req.url);
+    }
+    next();
+});
+
+// 2. HELMET — headers de segurança HTTP
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }));
 

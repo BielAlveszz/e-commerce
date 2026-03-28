@@ -108,7 +108,8 @@ const getAllOrders = async (req, res) => {
     try {
         const page   = parseInt(req.query.page)  || 1;
         const limit  = parseInt(req.query.limit) || 20;
-        const orders = await OrderModel.findAll(page, limit);
+        const search = req.query.search || '';
+        const orders = await OrderModel.findAll(page, limit, search);
         res.json(orders);
     } catch (error) {
         console.error('Erro ao buscar pedidos:', error);

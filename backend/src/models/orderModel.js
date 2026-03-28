@@ -111,14 +111,23 @@ const findByClient = async (clienteId, search) => {
     return rows;
 };
 
-const findAll = async (page = 1, limit = 20) => {
+const findAll = async (page = 1, limit = 20, search = '') => {
     const offset = (page - 1) * limit;
+    const params = [limit, offset];
+    let whereClause = '';
+
+    if (search && search.trim()) {
+        params.push('%' + search.trim() + '%');
+        whereClause = `WHERE (c.nome ILIKE $${params.length} OR c.email ILIKE $${params.length} OR p.id::text ILIKE $${params.length})`;
+    }
+
     const { rows } = await db.query(`
         SELECT p.id, p.valor_total, p.status, p.criado_em, c.nome AS cliente_nome, c.email AS cliente_email
         FROM pedidos p LEFT JOIN clientes c ON p.cliente_id = c.id
+        ${whereClause}
         ORDER BY p.criado_em DESC
         LIMIT $1 OFFSET $2
-    `, [limit, offset]);
+    `, params);
     return rows;
 };
 
