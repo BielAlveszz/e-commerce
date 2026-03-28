@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 const AdminRoute = ({ children }) => {
   const { user, isAuthenticated, authLoading } = useAuth();
 
-  // Enquanto verifica o token no localStorage, mostra tela de carregamento
+  // Aguarda verificação da sessão via /api/clientes/me
   if (authLoading) {
     return <div className="p-8 text-center">Carregando painel...</div>;
   }

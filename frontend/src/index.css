@@ -1,42 +1,73 @@
-/* Importação da fonte do Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;700;800&display=swap');
+/* ================================================================
+   MEBY COSMÉTICOS — index.css
+   Breakpoints Bootstrap usados:
+     xs:  < 576px  (celular pequeno)
+     sm:  ≥ 576px  (celular grande)
+     md:  ≥ 768px  (tablet)
+     lg:  ≥ 992px  (desktop)
+     xl:  ≥ 1200px (desktop grande)
+================================================================ */
 
-/* Importação da biblioteca de Skeleton */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;700;800&display=swap');
 @import 'react-loading-skeleton/dist/skeleton.css';
 
-/* Cores da Paleta Meby Cosméticos */
+/* ----------------------------------------------------------------
+   VARIÁVEIS
+---------------------------------------------------------------- */
 :root {
-  --meby-rosa-seco: #c9a8a0;
-  --meby-bege-quente: #e8d5c4;
+  --meby-rosa-seco:        #c9a8a0;
+  --meby-bege-quente:      #e8d5c4;
   --meby-azul-acinzentado: #b8c5d6;
-  --meby-rosa-claro: #f5e6e1;
-  --meby-dourado: #d4a574;
-  --meby-texto-escuro: #5a4a45;
+  --meby-rosa-claro:       #f5e6e1;
+  --meby-dourado:          #d4a574;
+  --meby-texto-escuro:     #5a4a45;
+}
+
+/* ----------------------------------------------------------------
+   BASE
+---------------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: #faf8f6; /* Fundo muito claro com toque de rosa */
+  background-color: #faf8f6;
   color: var(--meby-texto-escuro);
+  /* Evita scroll horizontal em mobile */
+  overflow-x: hidden;
 }
 
-/* --- Componentes Customizados --- */
+img {
+  max-width: 100%;
+  height: auto;
+}
 
-/* Logo no Header */
-.logo-icon {
-  height: 2.5rem; /* 40px */
-  width: 2.5rem; /* 40px */
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--meby-rosa-seco) 0%, var(--meby-bege-quente) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--meby-dourado);
+/* ----------------------------------------------------------------
+   TIPOGRAFIA
+---------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--meby-texto-escuro);
   font-weight: 700;
-  font-size: 1.2rem;
 }
 
-/* Header */
+a {
+  color: var(--meby-rosa-seco);
+  text-decoration: none;
+  transition: color 0.3s ease-in-out;
+}
+
+a:hover {
+  color: var(--meby-dourado);
+}
+
+hr {
+  border-color: var(--meby-rosa-claro);
+}
+
+/* ----------------------------------------------------------------
+   NAVBAR / HEADER
+---------------------------------------------------------------- */
 .navbar {
   background-color: #ffffff !important;
   border-bottom: 1px solid var(--meby-rosa-claro);
@@ -49,104 +80,15 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* Botões do Hero */
-.btn-dark-custom {
-  background-color: var(--meby-rosa-seco);
-  color: #ffffff;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  transition: all 0.3s ease-in-out;
-  border: none;
-}
-
-.btn-dark-custom:hover {
-  background-color: var(--meby-dourado);
-  color: #ffffff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(201, 168, 160, 0.3);
-}
-
-.btn-outline-custom {
-  border: 2px solid var(--meby-rosa-seco);
-  color: var(--meby-rosa-seco);
-  border-radius: 0.75rem;
-  font-weight: 600;
-  transition: all 0.3s ease-in-out;
-  background-color: transparent;
-}
-
-.btn-outline-custom:hover {
-  background-color: var(--meby-rosa-seco);
-  color: #ffffff;
-  transform: translateY(-2px);
-}
-
-/* Estilo do Card de Produto */
-.product-card {
-  transition: all 0.3s ease-in-out;
-  border: 1px solid var(--meby-rosa-claro);
-  border-radius: 0.75rem;
-  background-color: #ffffff;
-}
-
-.product-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 30px rgba(201, 168, 160, 0.2);
-  border-color: var(--meby-rosa-seco);
-}
-
-.product-card .card-img-top {
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  border-radius: 0.75rem 0.75rem 0 0;
-}
-
-/* Fundo escuro (Backdrop) */
-.cart-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.4);
-  z-index: 1040;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-}
-
-.cart-backdrop.is-open {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* Painel do Carrinho */
-.cart-offcanvas {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 400px;
-  max-width: 90vw;
-  height: 100%;
-  background-color: #ffffff;
-  z-index: 1045;
-  transform: translateX(100%);
-  transition: transform 0.3s ease-in-out;
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid var(--meby-rosa-claro);
-}
-
-.cart-offcanvas.is-open {
-  transform: translateX(0);
-}
-
-/* Hero Banner */
+/* ----------------------------------------------------------------
+   HERO BANNER
+---------------------------------------------------------------- */
 .hero-banner {
   position: relative;
   width: 100%;
   height: 60vh;
   max-height: 500px;
+  min-height: 280px;
   background-size: cover;
   background-position: center;
   display: flex;
@@ -160,39 +102,190 @@ body {
 .hero-banner::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(201, 168, 160, 0.3) 0%, rgba(184, 197, 214, 0.2) 100%);
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(201, 168, 160, 0.35) 0%,
+    rgba(184, 197, 214, 0.25) 100%
+  );
 }
 
 .hero-content {
   position: relative;
   z-index: 2;
+  width: 100%;
   max-width: 600px;
-  padding: 20px;
+  padding: 16px;
 }
 
 .hero-content h1 {
   font-family: 'Playfair Display', serif;
-  font-size: 2.5rem;
+  font-size: clamp(1.5rem, 5vw, 2.5rem); /* escala fluída entre mobile e desktop */
   font-weight: 700;
   color: #ffffff;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
+  line-height: 1.2;
 }
 
 .hero-content p {
-  font-size: 1.1rem;
+  font-size: clamp(0.9rem, 2.5vw, 1.1rem);
   color: #ffffff;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* Inputs e Formulários */
+/* ----------------------------------------------------------------
+   BOTÕES CUSTOMIZADOS
+---------------------------------------------------------------- */
+.btn-dark-custom {
+  background-color: var(--meby-rosa-seco);
+  color: #ffffff;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  border: none;
+  /* Área mínima de toque para mobile (WCAG 2.5.5) */
+  min-height: 44px;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+/* Hover apenas em dispositivos com ponteiro preciso — não trava em touch */
+@media (hover: hover) and (pointer: fine) {
+  .btn-dark-custom:hover {
+    background-color: var(--meby-dourado);
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(201, 168, 160, 0.35);
+  }
+}
+
+.btn-dark-custom:active {
+  background-color: var(--meby-dourado);
+  transform: scale(0.98);
+}
+
+.btn-outline-custom {
+  border: 2px solid var(--meby-rosa-seco);
+  color: var(--meby-rosa-seco);
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+  background-color: transparent;
+  min-height: 44px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-outline-custom:hover {
+    background-color: var(--meby-rosa-seco);
+    color: #ffffff;
+    transform: translateY(-2px);
+  }
+}
+
+.btn-outline-custom:active {
+  background-color: var(--meby-rosa-seco);
+  color: #ffffff;
+  transform: scale(0.98);
+}
+
+/* ----------------------------------------------------------------
+   BOTÕES BOOTSTRAP — área mínima de toque
+---------------------------------------------------------------- */
+.btn {
+  min-height: 38px;
+}
+
+.btn-lg {
+  min-height: 48px;
+}
+
+/* ----------------------------------------------------------------
+   CARD DE PRODUTO
+---------------------------------------------------------------- */
+.product-card {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  border: 1px solid var(--meby-rosa-claro);
+  border-radius: 0.75rem;
+  background-color: #ffffff;
+  width: 100%;
+}
+
+/* Hover com elevação apenas em dispositivos com mouse */
+@media (hover: hover) and (pointer: fine) {
+  .product-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 30px rgba(201, 168, 160, 0.2);
+    border-color: var(--meby-rosa-seco);
+  }
+}
+
+.product-card .card-img-top {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 0.75rem 0.75rem 0 0;
+  width: 100%;
+}
+
+/* ----------------------------------------------------------------
+   CARRINHO OFFCANVAS
+---------------------------------------------------------------- */
+.cart-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 1040;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  /* Bloqueia scroll do body quando carrinho aberto */
+  touch-action: none;
+}
+
+.cart-backdrop.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.cart-offcanvas {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  max-width: 92vw;
+  height: 100%;
+  height: 100dvh; /* dynamic viewport height — evita problema com barra de URL mobile */
+  background-color: #ffffff;
+  z-index: 1045;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--meby-rosa-claro);
+  overflow: hidden;
+}
+
+.cart-offcanvas.is-open {
+  transform: translateX(0);
+}
+
+/* Em celulares pequenos o carrinho ocupa a tela toda */
+@media (max-width: 480px) {
+  .cart-offcanvas {
+    width: 100%;
+    max-width: 100%;
+    border-left: none;
+  }
+}
+
+/* ----------------------------------------------------------------
+   FORMULÁRIOS
+---------------------------------------------------------------- */
 .form-control {
   border: 1px solid var(--meby-rosa-claro);
   border-radius: 0.5rem;
-  transition: all 0.3s ease-in-out;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  /* Impede zoom automático no iOS (fonte mínima de 16px) */
+  font-size: 1rem;
 }
 
 .form-control:focus {
@@ -200,85 +293,281 @@ body {
   box-shadow: 0 0 0 0.2rem rgba(201, 168, 160, 0.25);
 }
 
-.input-group-text {
-  background-color: var(--meby-rosa-claro) !important;
-  border-color: var(--meby-rosa-claro) !important;
-  color: var(--meby-rosa-seco) !important;
+.form-select {
+  font-size: 1rem; /* mesmo motivo — evitar zoom no iOS */
 }
 
-/* Badge (Notificações) */
-.badge {
+.input-group-text {
+  background-color: var(--meby-rosa-claro) !important;
+  border-color:     var(--meby-rosa-claro) !important;
+  color:            var(--meby-rosa-seco)  !important;
+}
+
+/* Páginas de login e cadastro — centralizadas e responsivas */
+.auth-page {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+@media (min-width: 576px) {
+  .auth-page {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+}
+
+/* ----------------------------------------------------------------
+   BADGES DE STATUS — correção do override global
+   O Bootstrap usa !important em bg-success/warning/danger,
+   então NÃO sobrescrevemos badges com classe de cor explícita.
+   Só aplicamos a cor da marca em badges sem classe de cor.
+---------------------------------------------------------------- */
+.badge:not([class*="bg-"]) {
   background-color: var(--meby-rosa-seco) !important;
   font-weight: 600;
 }
 
-/* Botões de Ação */
+/* ----------------------------------------------------------------
+   DROPDOWN
+---------------------------------------------------------------- */
+.dropdown-menu {
+  border: 1px solid var(--meby-rosa-claro);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background-color: var(--meby-rosa-claro);
+  color: var(--meby-texto-escuro);
+}
+
+/* ----------------------------------------------------------------
+   SOMBRAS
+---------------------------------------------------------------- */
+.shadow-sm {
+  box-shadow: 0 2px 8px rgba(201, 168, 160, 0.12) !important;
+}
+
+.shadow {
+  box-shadow: 0 4px 16px rgba(201, 168, 160, 0.18) !important;
+}
+
+/* ----------------------------------------------------------------
+   LOGO (caso usado)
+---------------------------------------------------------------- */
+.logo-icon {
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--meby-rosa-seco) 0%, var(--meby-bege-quente) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--meby-dourado);
+  font-weight: 700;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+/* ----------------------------------------------------------------
+   BOTÕES LIGHT (usados no header e ações secundárias)
+---------------------------------------------------------------- */
 .btn-light {
   background-color: var(--meby-rosa-claro);
   color: var(--meby-texto-escuro);
   border: none;
-  transition: all 0.3s ease-in-out;
+  transition: background-color 0.3s ease;
 }
 
-.btn-light:hover {
-  background-color: var(--meby-bege-quente);
-  color: var(--meby-texto-escuro);
+@media (hover: hover) and (pointer: fine) {
+  .btn-light:hover {
+    background-color: var(--meby-bege-quente);
+    color: var(--meby-texto-escuro);
+  }
 }
 
-/* Dropdown Menu */
-.dropdown-menu {
-  border: 1px solid var(--meby-rosa-claro);
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+/* ----------------------------------------------------------------
+   ACCORDION (Minha Conta — pedidos)
+---------------------------------------------------------------- */
+.accordion-button {
+  font-size: 0.95rem;
 }
 
-.dropdown-item:hover {
-  background-color: var(--meby-rosa-claro);
-  color: var(--meby-texto-escuro);
-}
-
-/* Links */
-a {
-  color: var(--meby-rosa-seco);
-  text-decoration: none;
-  transition: color 0.3s ease-in-out;
-}
-
-a:hover {
-  color: var(--meby-dourado);
-}
-
-/* Títulos */
-h1, h2, h3, h4, h5, h6 {
-  color: var(--meby-texto-escuro);
-  font-weight: 700;
-}
-
-/* Separadores */
-hr {
-  border-color: var(--meby-rosa-claro);
-}
-
-/* Sombras Suaves */
-.shadow-sm {
-  box-shadow: 0 2px 8px rgba(201, 168, 160, 0.1) !important;
-}
-
-.shadow {
-  box-shadow: 0 4px 12px rgba(201, 168, 160, 0.15) !important;
-}
-
-/* Responsividade */
-@media (max-width: 768px) {
-  .hero-content h1 {
-    font-size: 1.8rem;
+/* Em mobile o texto interno do accordion pode ficar muito espremido */
+@media (max-width: 575px) {
+  .accordion-button {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.875rem;
   }
 
-  .hero-content p {
-    font-size: 0.95rem;
+  /* Valor e badge em linha separada para não comprimir */
+  .accordion-button .d-flex.flex-wrap {
+    row-gap: 4px;
+  }
+}
+
+/* ----------------------------------------------------------------
+   TABELAS (admin)
+---------------------------------------------------------------- */
+.table {
+  font-size: 0.95rem;
+}
+
+@media (max-width: 575px) {
+  .table {
+    font-size: 0.82rem;
   }
 
-  .cart-offcanvas {
+  .table td,
+  .table th {
+    padding: 0.5rem 0.4rem;
+  }
+}
+
+/* ----------------------------------------------------------------
+   PÁGINA DE PRODUTO (ProdutoDetalhe)
+---------------------------------------------------------------- */
+@media (max-width: 767px) {
+  /* Imagem do produto não cresce demais em mobile */
+  .produto-imagem {
+    max-height: 320px;
     width: 100%;
+    object-fit: cover;
   }
+
+  /* Espaçamento menor entre seções em mobile */
+  main.container .row.g-5 {
+    --bs-gutter-y: 1.5rem;
+  }
+}
+
+/* ----------------------------------------------------------------
+   CHECKOUT
+---------------------------------------------------------------- */
+@media (max-width: 575px) {
+  /* QR Code PIX nunca ultrapassa a largura da tela */
+  .checkout-qrcode {
+    width: 100% !important;
+    max-width: 240px;
+    height: auto !important;
+  }
+}
+
+/* ----------------------------------------------------------------
+   FILTROS DE CATEGORIA
+---------------------------------------------------------------- */
+.category-filter-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  padding-bottom: 4px;
+}
+
+.category-filter-wrapper::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Em mobile, botões de categoria roláveis horizontalmente sem quebrar linha */
+@media (max-width: 767px) {
+  .category-filter-wrapper .d-flex {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+  }
+}
+
+/* ----------------------------------------------------------------
+   ADMIN LAYOUT — navbar em mobile
+---------------------------------------------------------------- */
+@media (max-width: 991px) {
+  /* Menu colapsado com fundo escuro adequado */
+  .navbar-collapse.show,
+  .navbar-collapse.collapsing {
+    padding: 0.75rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 0.5rem;
+  }
+
+  /* Links do nav admin maiores para toque */
+  .navbar[data-bs-theme="dark"] .nav-link {
+    padding: 0.6rem 0;
+    font-size: 1rem;
+  }
+}
+
+/* ----------------------------------------------------------------
+   UTILS — evitar overflow em qualquer container
+---------------------------------------------------------------- */
+.container,
+.container-fluid {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* Suporte a Safe Area do iPhone (notch / Dynamic Island) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .cart-offcanvas {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ----------------------------------------------------------------
+   HERO — botões com hover
+---------------------------------------------------------------- */
+.btn-hero-primary {
+  background-color: var(--meby-rosa-seco);
+  color: #ffffff;
+  border: none;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 44px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-hero-primary:hover {
+    background-color: var(--meby-dourado);
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.btn-hero-primary:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.btn-hero-outline {
+  background-color: transparent;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+  min-height: 44px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-hero-outline:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    transform: translateY(-2px);
+  }
+}
+
+.btn-hero-outline:active {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: scale(0.98);
 }

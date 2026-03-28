@@ -1,73 +1,50 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { jwtDecode } from 'jwt-decode';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { apiFetch } from '../services/Api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
-  // NOVO ESTADO: Controla se a verificação inicial do token no localStorage já terminou.
-  const [authLoading, setAuthLoading] = useState(true);
+    const [user, setUser]           = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
 
-  // Este useEffect roda APENAS UMA VEZ quando a aplicação inicia.
-  useEffect(() => {
-    try {
-      const storedToken = localStorage.getItem('token');
-      if (storedToken) {
-        const decodedUser = jwtDecode(storedToken);
-        // Verifica se o token não expirou (opcional, mas recomendado)
-        if (decodedUser.exp * 1000 > Date.now()) {
-          setToken(storedToken);
-          setUser(decodedUser);
-        } else {
-          // Se o token expirou, remove.
-          localStorage.removeItem('token');
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao decodificar token:", error);
-      localStorage.removeItem('token');
-    } finally {
-      // Informa que a verificação inicial terminou.
-      setAuthLoading(false);
-    }
-  }, []); // O array vazio [] garante que rode apenas uma vez.
+    // Verifica se o cookie de sessão ainda é válido ao carregar a aplicação
+    useEffect(() => {
+        apiFetch('/api/clientes/me')
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data?.user) setUser(data.user);
+            })
+            .catch(() => {})
+            .finally(() => setAuthLoading(false));
+    }, []);
 
-  const login = (newToken) => {
-    localStorage.setItem('token', newToken);
-    try {
-      const decodedUser = jwtDecode(newToken);
-      setToken(newToken);
-      setUser(decodedUser);
-    } catch (error) {
-      // Limpa tudo em caso de token inválido no login
-      logout();
-    }
-  };
+    // Recebe os dados do usuário vindos da resposta da API de login
+    // O token fica no httpOnly cookie — JavaScript nunca o vê
+    const login = useCallback((userData, localCartItems = []) => {
+        setUser(userData);
+        return localCartItems; // retorna para o CartContext fazer o merge
+    }, []);
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
-    setUser(null);
-  };
+    const logout = useCallback(async () => {
+        try {
+            await apiFetch('/api/clientes/logout', { method: 'POST' });
+        } catch (_) {}
+        setUser(null);
+    }, []);
 
-  const value = {
-    token,
-    user,
-    login,
-    logout,
-    isAuthenticated: !!token,
-    authLoading // <-- Exporta o novo estado
-  };
+    const value = {
+        user,
+        login,
+        logout,
+        isAuthenticated: !!user,
+        authLoading,
+    };
 
-  // Só renderiza o resto da aplicação quando a verificação inicial terminar
-  return (
-    <AuthContext.Provider value={value}>
-      {!authLoading && children}
-    </AuthContext.Provider>
-  );
+    return (
+        <AuthContext.Provider value={value}>
+            {!authLoading && children}
+        </AuthContext.Provider>
+    );
 };
 
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);

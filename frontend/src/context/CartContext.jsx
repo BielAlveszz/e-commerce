@@ -1,95 +1,163 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from '../services/Api';
+
+export const precoEfetivo = (item) =>
+    item.preco_promocional && parseFloat(item.preco_promocional) > 0
+        ? parseFloat(item.preco_promocional)
+        : parseFloat(item.preco);
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  const { token } = useAuth();
-  const [cartItems, setCartItems] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+    const { isAuthenticated } = useAuth();
+    const [cartItems, setCartItems]     = useState([]);
+    const [isCartOpen, setIsCartOpen]   = useState(false);
+    const [cartLoading, setCartLoading] = useState(false);
 
-  const addToCart = (productToAdd) => {
-    setCartItems(prevItems => {
-      const isItemInCart = prevItems.find(item => item.id === productToAdd.id);
-      if (isItemInCart) {
-        return prevItems.map(item =>
-          item.id === productToAdd.id
-            ? { ...item, quantity: (item.quantity || 1) + 1 }
-            : item
+    useEffect(() => {
+        if (isAuthenticated) {
+            setCartLoading(true);
+            apiFetch('/api/carrinho')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => { if (data?.items) setCartItems(data.items); })
+                .catch(() => {})
+                .finally(() => setCartLoading(false));
+        } else {
+            setCartItems([]);
+        }
+    }, [isAuthenticated]);
+
+    // Retorna a quantidade já no carrinho para um produto
+    const quantidadeNoCarrinho = useCallback((productId) => {
+        const item = cartItems.find(i => i.id === productId);
+        return item ? (item.quantity || 1) : 0;
+    }, [cartItems]);
+
+    const addToCart = useCallback(async (product, quantity = 1) => {
+        // Validação de estoque no frontend antes de qualquer chamada
+        const jaNoCarrinho = quantidadeNoCarrinho(product.id);
+        if (jaNoCarrinho + quantity > product.quantidade_estoque) {
+            throw new Error(
+                `Estoque insuficiente. Você já tem ${jaNoCarrinho} no carrinho e o estoque disponível é ${product.quantidade_estoque}.`
+            );
+        }
+
+        if (isAuthenticated) {
+            const res  = await apiFetch('/api/carrinho/items', {
+                method: 'POST',
+                body: JSON.stringify({ produto_id: product.id, quantidade: quantity }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            setCartItems(data.items);
+            setIsCartOpen(true);
+            return;
+        }
+
+        setCartItems(prev => {
+            const existing = prev.find(i => i.id === product.id);
+            if (existing) {
+                return prev.map(i =>
+                    i.id === product.id
+                        ? { ...i, quantity: (i.quantity || 1) + quantity }
+                        : i
+                );
+            }
+            return [...prev, { ...product, quantity }];
+        });
+        setIsCartOpen(true);
+    }, [isAuthenticated, quantidadeNoCarrinho]);
+
+    const removeFromCart = useCallback(async (productId) => {
+        if (isAuthenticated) {
+            const res  = await apiFetch(`/api/carrinho/items/${productId}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) { setCartItems(data.items); return; }
+            throw new Error(data.message);
+        }
+        setCartItems(prev => prev.filter(i => i.id !== productId));
+    }, [isAuthenticated]);
+
+    const updateQuantity = useCallback(async (productId, newQuantity) => {
+        if (newQuantity <= 0) return removeFromCart(productId);
+
+        // Validação de estoque no frontend ao atualizar quantidade
+        const item = cartItems.find(i => i.id === productId);
+        if (item && newQuantity > item.quantidade_estoque) {
+            throw new Error(`Estoque máximo disponível: ${item.quantidade_estoque} unidades.`);
+        }
+
+        if (isAuthenticated) {
+            const res  = await apiFetch(`/api/carrinho/items/${productId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ quantidade: newQuantity }),
+            });
+            const data = await res.json();
+            if (res.ok) { setCartItems(data.items); return; }
+            throw new Error(data.message);
+        }
+        setCartItems(prev =>
+            prev.map(i => i.id === productId ? { ...i, quantity: newQuantity } : i)
         );
-      }
-      return [...prevItems, { ...productToAdd, quantity: 1 }];
-    });
-    setIsCartOpen(true);
-  };
+    }, [isAuthenticated, removeFromCart, cartItems]);
 
-  const removeFromCart = (productId) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
-  };
-  
-  const updateQuantity = (productId, newQuantity) => {
-    if (newQuantity <= 0) {
-      removeFromCart(productId);
-    } else {
-      setCartItems(prevItems => 
-        prevItems.map(item => 
-          item.id === productId ? { ...item, quantity: newQuantity } : item
-        )
-      );
-    }
-  };
+    const mergeLocalCartOnLogin = useCallback(async (localItems) => {
+        if (!localItems || localItems.length === 0) return;
+        try {
+            const res  = await apiFetch('/api/carrinho/merge', {
+                method: 'POST',
+                body: JSON.stringify({ items: localItems }),
+            });
+            const data = await res.json();
+            if (res.ok) setCartItems(data.items);
+        } catch (_) {}
+    }, []);
 
-  const checkout = async () => {
-    if (cartItems.length === 0 || !token) {
-      throw new Error("O carrinho está vazio ou você não está logado.");
-    }
+    const checkout = useCallback(async (codigoCupom = null) => {
+        if (cartItems.length === 0) throw new Error('O carrinho está vazio.');
 
-    // Guarda uma cópia dos itens do carrinho antes de qualquer coisa
-    const itemsParaPedido = [...cartItems];
+        const itemsParaPedido = [...cartItems];
 
-    try {
-      const response = await fetch('http://localhost:3001/api/pedidos', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ cartItems: itemsParaPedido }) // Usa a cópia
-      });
+        const res = await apiFetch('/api/pedidos', {
+            method: 'POST',
+            body: JSON.stringify({
+                cartItems: itemsParaPedido,
+                ...(codigoCupom ? { codigoCupom } : {}),
+            }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Falha ao criar pedido');
-      }
-      
-      const orderData = await response.json();
-      
-      setCartItems([]);
-      setIsCartOpen(false);
-      
-      // AQUI ESTÁ A MUDANÇA: Retorna o pedido E a cópia dos itens
-      return { pedido: orderData.pedido, cartItems: itemsParaPedido }; 
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || 'Falha ao criar pedido.');
+        }
 
-    } catch (error) {
-      console.error("Erro no checkout:", error);
-      throw error; 
-    }
-  };
+        const orderData = await res.json();
+        setCartItems([]);
+        setIsCartOpen(false);
 
-  const value = {
-    cartItems,
-    isCartOpen,
-    setIsCartOpen,
-    addToCart,
-    removeFromCart,
-    updateQuantity,
-    checkout,
-    totalCartItems: cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0)
-  };
+        return {
+            pedido:      orderData.pedido,
+            desconto:    orderData.desconto || 0,
+            cartItems:   itemsParaPedido,
+        };
+    }, [cartItems]);
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+    const value = {
+        cartItems,
+        isCartOpen,
+        cartLoading,
+        setIsCartOpen,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        mergeLocalCartOnLogin,
+        checkout,
+        quantidadeNoCarrinho,
+        totalCartItems: cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0),
+    };
+
+    return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 
-export const useCart = () => {
-  return useContext(CartContext);
-};
+export const useCart = () => useContext(CartContext);
