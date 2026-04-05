@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Person, Cart, Search, X } from 'react-bootstrap-icons';
+import { Person, Cart, Search, X, ShieldLock } from 'react-bootstrap-icons';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,11 +7,11 @@ import { Link, useNavigate } from 'react-router-dom';
 const Header = () => {
     const { totalCartItems, setIsCartOpen } = useCart();
     const { isAuthenticated, user, logout } = useAuth();
-    const [searchTerm, setSearchTerm]       = useState('');
+    const [searchTerm, setSearchTerm]             = useState('');
     const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen]     = useState(false);
-    const navigate      = useNavigate();
-    const dropdownRef   = useRef(null);
+    const navigate        = useNavigate();
+    const dropdownRef     = useRef(null);
     const mobileSearchRef = useRef(null);
 
     const handleSearch = (e) => {
@@ -77,15 +77,76 @@ const Header = () => {
 
                         {isAuthenticated && user ? (
                             <div className="dropdown" ref={dropdownRef}>
-                                <button className="btn btn-light dropdown-toggle d-flex align-items-center gap-1"
-                                    onClick={() => setIsDropdownOpen(p => !p)}>
+                                <button
+                                    className="btn btn-light dropdown-toggle d-flex align-items-center gap-1"
+                                    onClick={() => setIsDropdownOpen(p => !p)}
+                                >
                                     <Person size={20} />
-                                    <span className="d-none d-sm-inline">Olá, {user.nome || 'Usuário'}</span>
+                                    <span className="d-none d-sm-inline">Olá, {user.nome?.split(' ')[0] || 'Usuário'}</span>
+                                    {/* Indicador visual de admin na badge */}
+                                    {user.is_admin && (
+                                        <span
+                                            className="badge rounded-pill ms-1"
+                                            style={{
+                                                backgroundColor: 'var(--meby-rosa-seco)',
+                                                fontSize: '0.6rem',
+                                                padding: '2px 6px',
+                                                verticalAlign: 'middle',
+                                            }}
+                                        >
+                                            Admin
+                                        </span>
+                                    )}
                                 </button>
-                                <ul className={`dropdown-menu dropdown-menu-end ${isDropdownOpen ? 'show' : ''}`}>
-                                    <li><Link className="dropdown-item" to="/minha-conta" onClick={() => setIsDropdownOpen(false)}>Minha Conta</Link></li>
-                                    <li><hr className="dropdown-divider" /></li>
-                                    <li><button className="dropdown-item" onClick={handleLogout}>Sair</button></li>
+
+                                <ul className={`dropdown-menu dropdown-menu-end ${isDropdownOpen ? 'show' : ''}`}
+                                    style={{ minWidth: 200 }}>
+
+                                    {/* Info do usuário no topo do dropdown */}
+                                    <li>
+                                        <div className="px-3 py-2" style={{ borderBottom: '1px solid var(--meby-rosa-claro)' }}>
+                                            <p className="mb-0 fw-bold" style={{ fontSize: '0.875rem', color: 'var(--meby-texto-escuro)' }}>
+                                                {user.nome}
+                                            </p>
+                                            <p className="mb-0 text-muted" style={{ fontSize: '0.75rem' }}>
+                                                {user.email}
+                                            </p>
+                                        </div>
+                                    </li>
+
+                                    {/* Botão de Painel Admin — visível apenas para admins */}
+                                    {user.is_admin && (
+                                        <>
+                                            <li>
+                                                <Link
+                                                    className="dropdown-item d-flex align-items-center gap-2"
+                                                    to="/admin/dashboard"
+                                                    onClick={() => setIsDropdownOpen(false)}
+                                                    style={{fontWeight: 600 }}
+                                                >
+                                                    <ShieldLock size={16} />
+                                                    Painel Admin
+                                                </Link>
+                                            </li>
+                                            <li><hr className="dropdown-divider" style={{ borderColor: 'var(--meby-rosa-claro)' }} /></li>
+                                        </>
+                                    )}
+
+                                    <li>
+                                        <Link
+                                            className="dropdown-item"
+                                            to="/minha-conta"
+                                            onClick={() => setIsDropdownOpen(false)}
+                                        >
+                                            Minha Conta
+                                        </Link>
+                                    </li>
+                                    <li><hr className="dropdown-divider" style={{ borderColor: 'var(--meby-rosa-claro)' }} /></li>
+                                    <li>
+                                        <button className="dropdown-item text-danger" onClick={handleLogout}>
+                                            Sair
+                                        </button>
+                                    </li>
                                 </ul>
                             </div>
                         ) : (

@@ -4,7 +4,7 @@ import { apiFetch } from '../services/Api';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser]           = useState(null);
+    const [user, setUser]               = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
 
     // Verifica se o cookie de sessão ainda é válido ao carregar a aplicação
@@ -32,10 +32,16 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     }, []);
 
+    // Atualiza dados do usuário no contexto (usado após edição de perfil)
+    const updateUser = useCallback((dadosAtualizados) => {
+        setUser(prev => prev ? { ...prev, ...dadosAtualizados } : prev);
+    }, []);
+
     const value = {
         user,
         login,
         logout,
+        updateUser,
         isAuthenticated: !!user,
         authLoading,
     };

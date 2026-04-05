@@ -35,7 +35,6 @@ router.post(
   limiter,
   adminMiddleware,
   sanitizeInput,
-  validateProduct,
   createProduct
 );
 
@@ -44,7 +43,6 @@ router.put(
   limiter,
   adminMiddleware,
   sanitizeInput,
-  validateProduct,
   updateProduct
 );
 

@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { z }  = require('zod');
 const ClienteModel  = require('../models/clienteModel');
 const CarrinhoModel = require('../models/carrinhoModel');
+const db = require('../database');
 
 const JWT_SECRET    = process.env.JWT_SECRET;
 const NODE_ENV      = process.env.NODE_ENV || 'development';
@@ -27,6 +28,21 @@ const registroSchema = z.object({
                 .regex(/\d/,    'A senha deve conter pelo menos um número'),
     telefone: z.string().optional(),
     cpf:      z.string().length(11, 'O CPF deve conter exatos 11 dígitos numéricos'),
+});
+
+const atualizarPerfilSchema = z.object({
+    nome:     z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
+    email:    z.string().email('Formato de e-mail inválido'),
+    telefone: z.string().optional().nullable(),
+});
+
+const trocarSenhaSchema = z.object({
+    senhaAtual: z.string().min(1, 'Senha atual é obrigatória'),
+    novaSenha:  z.string()
+                  .min(8, 'A nova senha deve ter pelo menos 8 caracteres')
+                  .regex(/[A-Z]/, 'A nova senha deve conter pelo menos uma letra maiúscula')
+                  .regex(/[a-z]/, 'A nova senha deve conter pelo menos uma letra minúscula')
+                  .regex(/\d/,    'A nova senha deve conter pelo menos um número'),
 });
 
 // POST /api/clientes/registrar
@@ -100,11 +116,11 @@ const logoutCliente = (req, res) => {
     res.json({ message: 'Logout realizado com sucesso.' });
 };
 
-// GET /api/clientes/me — verifica se o cookie é válido e retorna dados do usuário
+// GET /api/clientes/me — retorna dados completos do usuário autenticado
 const getMe = async (req, res) => {
     try {
-        const { rows } = await require('../database').query(
-            'SELECT id, nome, email, is_admin FROM clientes WHERE id = $1',
+        const { rows } = await db.query(
+            'SELECT id, nome, email, telefone, cpf, is_admin, criado_em FROM clientes WHERE id = $1',
             [req.user.id]
         );
         if (rows.length === 0) {
@@ -116,9 +132,91 @@ const getMe = async (req, res) => {
     }
 };
 
+// PUT /api/clientes/me — atualiza perfil do cliente autenticado (nome, email, telefone)
+const atualizarPerfil = async (req, res, next) => {
+    try {
+        const dadosValidados = atualizarPerfilSchema.parse(req.body);
+
+        // Verifica se o novo email já pertence a outro cliente
+        if (dadosValidados.email) {
+            const { rows: emailCheck } = await db.query(
+                'SELECT id FROM clientes WHERE email = $1 AND id != $2',
+                [dadosValidados.email, req.user.id]
+            );
+            if (emailCheck.length > 0) {
+                return res.status(400).json({ message: 'Este email já está em uso por outro usuário.' });
+            }
+        }
+
+        const { rows } = await db.query(
+            `UPDATE clientes
+             SET nome = $1, email = $2, telefone = $3
+             WHERE id = $4
+             RETURNING id, nome, email, telefone, cpf, is_admin`,
+            [dadosValidados.nome, dadosValidados.email, dadosValidados.telefone || null, req.user.id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+
+        res.json({ message: 'Perfil atualizado com sucesso!', user: rows[0] });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ message: 'Dados inválidos', erros: error.errors });
+        }
+        if (error.code === '23505') {
+            return res.status(400).json({ message: 'Este email já está em uso.' });
+        }
+        next(error);
+    }
+};
+
+// PUT /api/clientes/me/senha — troca a senha do cliente autenticado
+const trocarSenha = async (req, res, next) => {
+    try {
+        const { senhaAtual, novaSenha } = trocarSenhaSchema.parse(req.body);
+
+        const { rows } = await db.query(
+            'SELECT senha_hash FROM clientes WHERE id = $1',
+            [req.user.id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+
+        const senhaCorreta = await bcrypt.compare(senhaAtual, rows[0].senha_hash);
+        if (!senhaCorreta) {
+            return res.status(401).json({ message: 'Senha atual incorreta.' });
+        }
+
+        if (senhaAtual === novaSenha) {
+            return res.status(400).json({ message: 'A nova senha deve ser diferente da senha atual.' });
+        }
+
+        const salt = await bcrypt.genSalt(12);
+        const hash = await bcrypt.hash(novaSenha, salt);
+
+        await db.query(
+            'UPDATE clientes SET senha_hash = $1 WHERE id = $2',
+            [hash, req.user.id]
+        );
+
+        res.json({ message: 'Senha alterada com sucesso!' });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ message: 'Dados inválidos', erros: error.errors });
+        }
+        next(error);
+    }
+};
+
 module.exports = {
     registrarCliente,
     loginCliente,
     logoutCliente,
     getMe,
+    atualizarPerfil,
+    trocarSenha,
 };

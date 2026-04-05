@@ -1,182 +1,110 @@
-/**
- * Sanitização simples contra XSS sem dependência externa.
- * Remove tags HTML e atributos perigosos de strings.
- */
+// ─────────────────────────────────────────────────────────────────
+// validationMiddleware.js
+//
+// IMPORTANTE: a validação de produto foi migrada para Zod direto
+// no productController.js, que é a fonte de verdade para o schema.
+// O `validateProduct` antigo verificava campos errados (name, price,
+// category) que não batem com os campos reais do banco (nome, preco,
+// sub_categoria_id), então foi removido para evitar falsos positivos.
+//
+// Este arquivo mantém:
+//  - sanitizeInput  — higieniza strings do req.body/query/params
+//  - helpers de validação reutilizáveis (email, password)
+//  - errorHandler   — middleware global de erros
+// ─────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────
+// Sanitização contra XSS — converte caracteres perigosos em entidades HTML.
+// Aplicada como middleware em todas as rotas de leitura e escrita.
+// ─────────────────────────────────────────────────────────────────
 const sanitizeString = (str) => {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
+    return str
+        .replace(/&/g,  '&amp;')
+        .replace(/</g,  '&lt;')
+        .replace(/>/g,  '&gt;')
+        .replace(/"/g,  '&quot;')
+        .replace(/'/g,  '&#x27;')
+        .replace(/\//g, '&#x2F;');
 };
 
+// ─────────────────────────────────────────────────────────────────
+// sanitizeInput — middleware que percorre body, query e params
+// sanitizando recursivamente todas as strings.
+// Não toca em números, booleans ou null.
+// ─────────────────────────────────────────────────────────────────
+const sanitizeInput = (req, res, next) => {
+    const sanitize = (obj) => {
+        if (typeof obj === 'string') return sanitizeString(obj.trim());
+        if (Array.isArray(obj))     return obj.map(sanitize);
+        if (typeof obj === 'object' && obj !== null) {
+            return Object.fromEntries(
+                Object.entries(obj).map(([k, v]) => [k, sanitize(v)])
+            );
+        }
+        return obj; // number, boolean, null — passa sem alteração
+    };
+
+    req.body   = sanitize(req.body);
+    req.query  = sanitize(req.query);
+    req.params = sanitize(req.params);
+
+    next();
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Helpers reutilizáveis (usados em testes ou outros middlewares)
+// ─────────────────────────────────────────────────────────────────
 const validateEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
 };
 
 const validatePassword = (password) => {
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
-  return passwordRegex.test(password);
+    // Mínimo 8 chars, uma maiúscula, uma minúscula, um número
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    return passwordRegex.test(password);
 };
 
-const validateProductData = (data) => {
-  const errors = [];
-  if (!data.name || typeof data.name !== 'string' || data.name.trim().length === 0) {
-    errors.push('Nome do produto é obrigatório e deve ser uma string válida');
-  }
-  if (!data.price || typeof data.price !== 'number' || data.price <= 0) {
-    errors.push('Preço deve ser um número positivo');
-  }
-  if (!data.category || typeof data.category !== 'string' || data.category.trim().length === 0) {
-    errors.push('Categoria é obrigatória');
-  }
-  if (data.description && typeof data.description !== 'string') {
-    errors.push('Descrição deve ser uma string');
-  }
-  if (data.stock !== undefined && (typeof data.stock !== 'number' || data.stock < 0)) {
-    errors.push('Estoque deve ser um número não-negativo');
-  }
-  return errors;
-};
-
-const validateOrderData = (data) => {
-  const errors = [];
-  if (!data.userId || typeof data.userId !== 'number') {
-    errors.push('ID do usuário é obrigatório');
-  }
-  if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
-    errors.push('Pedido deve conter pelo menos um item');
-  }
-  if (data.items && Array.isArray(data.items)) {
-    data.items.forEach((item, index) => {
-      if (!item.productId || typeof item.productId !== 'number') {
-        errors.push(`Item ${index + 1}: ID do produto é obrigatório`);
-      }
-      if (!item.quantity || typeof item.quantity !== 'number' || item.quantity <= 0) {
-        errors.push(`Item ${index + 1}: Quantidade deve ser um número positivo`);
-      }
-    });
-  }
-  if (!data.shippingAddress || typeof data.shippingAddress !== 'string') {
-    errors.push('Endereço de entrega é obrigatório');
-  }
-  return errors;
-};
-
-const validateClientData = (data) => {
-  const errors = [];
-  if (!data.nome || typeof data.nome !== 'string' || data.nome.trim().length === 0) {
-    errors.push('Nome é obrigatório');
-  }
-  if (!data.email || !validateEmail(data.email)) {
-    errors.push('Email inválido');
-  }
-  if (data.senha && !validatePassword(data.senha)) {
-    errors.push('Senha deve ter pelo menos 8 caracteres, incluindo maiúsculas, minúsculas e números');
-  }
-  if (data.telefone && !/^\d{10,11}$/.test(data.telefone.replace(/\D/g, ''))) {
-    errors.push('Telefone inválido');
-  }
-  return errors;
-};
-
-const validateMercadoPagoData = (data) => {
-  const errors = [];
-  if (!data.orderId || typeof data.orderId !== 'number') {
-    errors.push('ID do pedido é obrigatório');
-  }
-  if (!data.amount || typeof data.amount !== 'number' || data.amount <= 0) {
-    errors.push('Valor deve ser um número positivo');
-  }
-  if (!data.paymentMethodId || typeof data.paymentMethodId !== 'string') {
-    errors.push('Método de pagamento é obrigatório');
-  }
-  return errors;
-};
-
-const validateProduct = (req, res, next) => {
-  const errors = validateProductData(req.body);
-  if (errors.length > 0) {
-    return res.status(400).json({ success: false, message: 'Dados inválidos', errors: errors });
-  }
-  next();
-};
-
-const validateOrder = (req, res, next) => {
-  const errors = validateOrderData(req.body);
-  if (errors.length > 0) {
-    return res.status(400).json({ success: false, message: 'Dados do pedido inválidos', errors: errors });
-  }
-  next();
-};
-
-const validateClient = (req, res, next) => {
-  const errors = validateClientData(req.body);
-  if (errors.length > 0) {
-    return res.status(400).json({ success: false, message: 'Dados do cliente inválidos', errors: errors });
-  }
-  next();
-};
-
-const validateMercadoPago = (req, res, next) => {
-  const errors = validateMercadoPagoData(req.body);
-  if (errors.length > 0) {
-    return res.status(400).json({ success: false, message: 'Dados de pagamento inválidos', errors: errors });
-  }
-  next();
-};
-
-/**
- * Middleware para sanitizar entrada e prevenir XSS de forma PROFISSIONAL
- */
-const sanitizeInput = (req, res, next) => {
-  const sanitize = (obj) => {
-    if (typeof obj === 'string') {
-      return sanitizeString(obj.trim());
-    }
-    if (typeof obj === 'object' && obj !== null) {
-      Object.keys(obj).forEach((key) => {
-        obj[key] = sanitize(obj[key]);
-      });
-    }
-    return obj;
-  };
-
-  req.body = sanitize(req.body);
-  req.query = sanitize(req.query);
-  req.params = sanitize(req.params);
-
-  next();
-};
-
+// ─────────────────────────────────────────────────────────────────
+// errorHandler — middleware global de erros (registrado no app.js)
+// Captura erros não tratados e retorna resposta padronizada.
+// ─────────────────────────────────────────────────────────────────
 const errorHandler = (err, req, res, next) => {
-  console.error('Erro:', err);
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({ success: false, message: 'Erro de validação', errors: err.details || err.message });
-  }
-  if (err.name === 'UnauthorizedError') {
-    return res.status(401).json({ success: false, message: 'Não autorizado' });
-  }
-  if (err.code === 'ER_DUP_ENTRY') {
-    return res.status(409).json({ success: false, message: 'Registro duplicado' });
-  }
-  res.status(err.status || 500).json({ success: false, message: err.message || 'Erro interno do servidor' });
+    console.error('Erro não tratado:', err);
+
+    // Erros de validação Zod (lançados manualmente com .parse)
+    if (err.name === 'ZodError') {
+        return res.status(400).json({
+            message: 'Dados inválidos.',
+            erros: err.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+        });
+    }
+
+    // Erros de autenticação JWT
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+        return res.status(401).json({ message: 'Sessão inválida ou expirada.' });
+    }
+
+    // Violação de chave única no Postgres
+    if (err.code === '23505') {
+        return res.status(409).json({ message: 'Registro duplicado.' });
+    }
+
+    // Violação de FK no Postgres
+    if (err.code === '23503') {
+        return res.status(400).json({ message: 'Referência inválida. Verifique os dados informados.' });
+    }
+
+    const isProd = process.env.NODE_ENV === 'production';
+    res.status(err.status || 500).json({
+        message: isProd ? 'Erro interno do servidor.' : (err.message || 'Erro interno do servidor.'),
+        ...(isProd ? {} : { stack: err.stack }),
+    });
 };
 
 module.exports = {
-  validateEmail,
-  validatePassword,
-  validateProductData,
-  validateOrderData,
-  validateClientData,
-  validateMercadoPagoData,
-  validateProduct,
-  validateOrder,
-  validateClient,
-  validateMercadoPago,
-  sanitizeInput,
-  errorHandler,
+    sanitizeInput,
+    validateEmail,
+    validatePassword,
+    errorHandler,
 };
