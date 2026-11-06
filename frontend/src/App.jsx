@@ -26,6 +26,7 @@ import AdminProductsPage from './pages/AdminProductsPage';
 import AdminProductForm from './pages/AdminProductForm';
 import AdminCategoryPage from './pages/AdminCategoryPage';
 import AdminCuponsPage    from './pages/AdminCuponsPage';
+import AdminManualOrderPage from './pages/AdminManualOrderPage';
 
 import './index.css';
 
@@ -55,6 +56,7 @@ function App() {
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard"          element={<AdminDashboard />} />
         <Route path="pedidos"            element={<AdminOrdersPage />} />
+        <Route path="pedidos/pdv" element={<AdminManualOrderPage />} />
         <Route path="produtos"           element={<AdminProductsPage />} />
         <Route path="categorias"         element={<AdminCategoryPage />} />
         <Route path="produtos/novo"      element={<AdminProductForm />} />

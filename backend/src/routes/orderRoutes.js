@@ -10,4 +10,9 @@ router.get('/', adminMiddleware, orderController.getAllOrders);
 router.get('/detalhes/:id', authMiddleware, orderController.getOrderDetails);
 router.patch('/:id/status', adminMiddleware, orderController.updateOrderStatus);
 
+router.post('/manual', adminMiddleware, orderController.createManualOrder);
+
+// Nova rota SSE para acompanhar o pagamento em tempo real
+router.get('/stream/:id', authMiddleware, orderController.streamPaymentStatus);
+
 module.exports = router;

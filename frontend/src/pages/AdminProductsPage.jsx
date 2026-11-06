@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { PencilSquare, Trash, Search, DashLg, PlusLg } from 'react-bootstrap-icons';
 import toast from 'react-hot-toast';
 import { apiFetch, API_URL } from '../services/Api';
+import { onImgError } from '../utils/imgPlaceholder';
 
 // Campo inline de ajuste rápido de estoque
 const EstoqueEditor = ({ product, onUpdated }) => {
@@ -94,12 +95,21 @@ const AdminProductsPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [deletingId, setDeletingId] = useState(null);
 
-  const fetchProducts = useCallback(async (p = 1, s = '') => {
+  // Filtros por categoria / tipo (subcategoria)
+  const [categorias, setCategorias]             = useState([]);
+  const [subcategorias, setSubcategorias]       = useState([]);
+  const [filtroCategoria, setFiltroCategoria]       = useState('');     // nome da categoria
+  const [filtroSubcategoria, setFiltroSubcategoria] = useState('');     // nome da subcategoria
+
+  const fetchProducts = useCallback(async (p = 1, filtros = {}) => {
+    const { s = '', categoria = '', subcategoria = '' } = filtros;
     setLoading(true);
     setError(false);
     try {
       const params = new URLSearchParams({ page: p, limit: 12 });
-      if (s.trim()) params.append('search', s.trim());
+      if (s.trim())      params.append('search', s.trim());
+      if (categoria)     params.append('categoria', categoria);
+      if (subcategoria)  params.append('subcategoria', subcategoria);
       const res  = await apiFetch(`/api/produtos?${params.toString()}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -113,11 +123,51 @@ const AdminProductsPage = () => {
     }
   }, []);
 
-  useEffect(() => { fetchProducts(1, search); }, []);
+  // Carga inicial dos produtos
+  useEffect(() => { fetchProducts(1, {}); }, [fetchProducts]);
+
+  // Carrega categorias e subcategorias (uma vez) para os dropdowns
+  useEffect(() => {
+    (async () => {
+      try {
+        const [rc, rs] = await Promise.all([
+          apiFetch('/api/categorias'),
+          apiFetch('/api/categorias/sub'),
+        ]);
+        if (rc.ok) setCategorias(await rc.json());
+        if (rs.ok) setSubcategorias(await rs.json());
+      } catch { /* silencioso: os filtros simplesmente ficam vazios */ }
+    })();
+  }, []);
+
+  // Objeto com os filtros atuais (usado na paginação e após deletar)
+  const filtrosAtuais = () => ({
+    s: search,
+    categoria: filtroCategoria,
+    subcategoria: filtroSubcategoria,
+  });
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchProducts(1, search);
+    fetchProducts(1, filtrosAtuais());
+  };
+
+  const handleCategoriaChange = (nome) => {
+    setFiltroCategoria(nome);
+    setFiltroSubcategoria(''); // ao trocar a categoria, zera o tipo
+    fetchProducts(1, { s: search, categoria: nome, subcategoria: '' });
+  };
+
+  const handleSubcategoriaChange = (nome) => {
+    setFiltroSubcategoria(nome);
+    fetchProducts(1, { s: search, categoria: filtroCategoria, subcategoria: nome });
+  };
+
+  const limparTudo = () => {
+    setSearch('');
+    setFiltroCategoria('');
+    setFiltroSubcategoria('');
+    fetchProducts(1, {});
   };
 
   const handleDelete = async (id, nome) => {
@@ -128,7 +178,7 @@ const AdminProductsPage = () => {
       if (!res.ok) throw new Error('Falha ao deletar produto.');
       toast.success(`"${nome}" deletado.`);
       const newPage = products.length === 1 && page > 1 ? page - 1 : page;
-      fetchProducts(newPage, search);
+      fetchProducts(newPage, filtrosAtuais());
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -143,6 +193,14 @@ const AdminProductsPage = () => {
     );
   };
 
+  // Subcategorias mostradas no dropdown: filtradas pela categoria escolhida (se houver)
+  const catSelecionada = categorias.find(c => c.nome === filtroCategoria);
+  const subsVisiveis = catSelecionada
+    ? subcategorias.filter(s => s.categoria_id === catSelecionada.id)
+    : subcategorias;
+
+  const temFiltro = search || filtroCategoria || filtroSubcategoria;
+
   return (
     <div className="container my-5">
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
@@ -150,21 +208,48 @@ const AdminProductsPage = () => {
         <Link to="/admin/produtos/novo" className="btn btn-dark-custom">+ Novo Produto</Link>
       </div>
 
-      {/* Busca */}
-      <form onSubmit={handleSearch} className="mb-4" style={{ maxWidth: 480 }}>
-        <div className="input-group">
-          <span className="input-group-text"><Search size={16} /></span>
-          <input type="text" className="form-control" placeholder="Buscar por nome..."
-            value={search} onChange={e => setSearch(e.target.value)} />
-          <button type="submit" className="btn btn-dark-custom">Buscar</button>
-          {search && (
-            <button type="button" className="btn btn-outline-secondary"
-              onClick={() => { setSearch(''); fetchProducts(1, ''); }}>
-              Limpar
-            </button>
-          )}
+      {/* Busca + Filtros */}
+      <div className="d-flex flex-wrap gap-2 align-items-end mb-3">
+        <form onSubmit={handleSearch} style={{ flex: '1 1 260px', minWidth: 220 }}>
+          <label className="form-label small text-muted mb-1">Buscar</label>
+          <div className="input-group">
+            <span className="input-group-text"><Search size={16} /></span>
+            <input type="text" className="form-control" placeholder="Buscar por nome..."
+              value={search} onChange={e => setSearch(e.target.value)} />
+            <button type="submit" className="btn btn-dark-custom">Buscar</button>
+          </div>
+        </form>
+
+        <div style={{ flex: '0 1 200px', minWidth: 160 }}>
+          <label className="form-label small text-muted mb-1">Categoria</label>
+          <select className="form-select"
+            value={filtroCategoria}
+            onChange={e => handleCategoriaChange(e.target.value)}>
+            <option value="">Todas</option>
+            {categorias.map(c => (
+              <option key={c.id} value={c.nome}>{c.nome}</option>
+            ))}
+          </select>
         </div>
-      </form>
+
+        <div style={{ flex: '0 1 220px', minWidth: 160 }}>
+          <label className="form-label small text-muted mb-1">Tipo</label>
+          <select className="form-select"
+            value={filtroSubcategoria}
+            onChange={e => handleSubcategoriaChange(e.target.value)}>
+            <option value="">Todos</option>
+            {subsVisiveis.map(s => (
+              <option key={s.id} value={s.nome}>{s.nome}</option>
+            ))}
+          </select>
+        </div>
+
+        {temFiltro && (
+          <button type="button" className="btn btn-outline-secondary" onClick={limparTudo}>
+            Limpar filtros
+          </button>
+        )}
+      </div>
 
       {/* Legenda do estoque */}
       <div className="d-flex gap-3 mb-4 flex-wrap" style={{ fontSize: '0.8rem' }}>
@@ -179,7 +264,7 @@ const AdminProductsPage = () => {
         <div className="alert alert-danger">
           Não foi possível carregar os produtos.
           <button className="btn btn-sm btn-outline-danger ms-2"
-            onClick={() => fetchProducts(page, search)}>Tentar novamente</button>
+            onClick={() => fetchProducts(page, filtrosAtuais())}>Tentar novamente</button>
         </div>
       )}
 
@@ -190,9 +275,8 @@ const AdminProductsPage = () => {
       ) : products.length === 0 ? (
         <div className="text-center py-5 text-muted">
           <p className="fs-5">Nenhum produto encontrado.</p>
-          {search && (
-            <button className="btn btn-outline-custom"
-              onClick={() => { setSearch(''); fetchProducts(1, ''); }}>
+          {temFiltro && (
+            <button className="btn btn-outline-custom" onClick={limparTudo}>
               Ver todos os produtos
             </button>
           )}
@@ -204,11 +288,11 @@ const AdminProductsPage = () => {
               <div key={product.id} className="col-12 col-sm-6 col-lg-4 col-xl-3">
                 <div className="card h-100 product-card">
                   <img
-                    src={`${API_URL}/images/${product.url_imagem}`}
+                    src={product.url_imagem ? `${API_URL}/images/${product.url_imagem}` : undefined}
                     alt={product.nome}
                     className="card-img-top"
                     style={{ aspectRatio: '1/1', objectFit: 'cover' }}
-                    onError={e => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/300?text=Sem+Imagem'; }}
+                    onError={onImgError}
                   />
                   <div className="card-body d-flex flex-column gap-2">
                     <h6 className="card-title mb-0" style={{ fontSize: '0.875rem' }}>
@@ -263,12 +347,12 @@ const AdminProductsPage = () => {
           {totalPages > 1 && (
             <div className="d-flex justify-content-center align-items-center gap-2 mt-5">
               <button className="btn btn-outline-custom btn-sm"
-                disabled={page <= 1} onClick={() => fetchProducts(page - 1, search)}>
+                disabled={page <= 1} onClick={() => fetchProducts(page - 1, filtrosAtuais())}>
                 ← Anterior
               </button>
               <span className="text-muted small px-2">Página {page} de {totalPages}</span>
               <button className="btn btn-outline-custom btn-sm"
-                disabled={page >= totalPages} onClick={() => fetchProducts(page + 1, search)}>
+                disabled={page >= totalPages} onClick={() => fetchProducts(page + 1, filtrosAtuais())}>
                 Próxima →
               </button>
             </div>

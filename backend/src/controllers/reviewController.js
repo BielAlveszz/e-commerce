@@ -20,6 +20,17 @@ const createReview = async (req, res) => {
     }
 
     try {
+        // ─────────────────────────────────────────────────────────────────
+        // BLOQUEIO DE AVALIAÇÕES FALSAS
+        // ─────────────────────────────────────────────────────────────────
+        const clienteComprou = await ReviewModel.checkUserPurchasedProduct(clienteId, produto_id);
+        
+        if (!clienteComprou) {
+            return res.status(403).json({ 
+                message: 'Você só pode avaliar produtos que já comprou e teve o pagamento confirmado.' 
+            });
+        }
+
         const newReview = await ReviewModel.create({ 
             produto_id, 
             cliente_id: clienteId, 

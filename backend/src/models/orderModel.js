@@ -1,11 +1,5 @@
 const db = require('../database');
 
-// ─────────────────────────────────────────────────────────────────
-// Helper: retorna o preço efetivo do item (promocional se existir)
-// CORREÇÃO CRÍTICA: o modelo anterior sempre usava `preco`,
-// ignorando `preco_promocional` e cobrando o valor cheio mesmo
-// em produtos com desconto ativo.
-// ─────────────────────────────────────────────────────────────────
 const precoEfetivo = (produto) => {
     const promo = parseFloat(produto.preco_promocional);
     return promo > 0 ? promo : parseFloat(produto.preco);
@@ -13,10 +7,8 @@ const precoEfetivo = (produto) => {
 
 // ─────────────────────────────────────────────────────────────────
 // create — cria pedido com transação atômica
-// Valida estoque, aplica preço correto (promo ou normal),
-// desconta cupom, registra tudo e subtrai estoque de uma vez.
 // ─────────────────────────────────────────────────────────────────
-const create = async (clienteId, cartItems, cupom = null) => {
+const create = async (clienteId, cartItems, cupom = null, endereco = null) => {
     const client = await db.connect();
 
     try {
@@ -25,18 +17,25 @@ const create = async (clienteId, cartItems, cupom = null) => {
         let valorTotal = 0;
         const itensValidados = [];
 
-        // 1. Valida estoque e trava as linhas (FOR UPDATE evita race condition)
         for (const item of cartItems) {
-            const { rows } = await client.query(
-                `SELECT id, nome, preco, preco_promocional, quantidade_estoque
-                 FROM produtos
-                 WHERE id = $1 AND esta_ativo = TRUE
-                 FOR UPDATE`,
-                [item.id]
+            // Verifica se o produto está ativo e NÃO foi deletado
+            const { rows: pedidoRows } = await client.query(
+                `INSERT INTO pedidos
+                (cliente_id, valor_total, status, cupom_id, desconto_aplicado, endereco_id, endereco_snapshot)
+             VALUES ($1, $2, 'pagamento_pendente', $3, $4, $5, $6)
+             RETURNING id, codigo_rastreio, valor_total, status, criado_em`, // Retornamos o UUID
+                [
+                    clienteId,
+                    valorFinal,
+                    cupom?.id || null,
+                    desconto,
+                    endereco?.id || null,
+                    endereco?.snapshot ? JSON.stringify(endereco.snapshot) : null,
+                ]
             );
 
             if (rows.length === 0) {
-                throw new Error(`Produto não encontrado ou inativo (ID: ${item.id}).`);
+                throw new Error(`Produto não encontrado, inativo ou esgotado (ID: ${item.id}).`);
             }
 
             const produto = rows[0];
@@ -48,41 +47,40 @@ const create = async (clienteId, cartItems, cupom = null) => {
                 );
             }
 
-            // CORREÇÃO: usa preço promocional quando disponível
             const preco = precoEfetivo(produto);
             valorTotal += preco * item.quantity;
 
             itensValidados.push({
-                produto_id:                item.id,
-                quantidade:                item.quantity,
+                produto_id: item.id,
+                quantidade: item.quantity,
                 preco_no_momento_da_compra: preco,
+                // Aqui já deixamos o espaço para o ID da Variante que implementaremos no frontend depois
+                produto_variante_id: item.variante_id || null
             });
         }
 
-        // 2. Aplica desconto do cupom (sem deixar valor negativo)
-        const desconto    = cupom ? Math.min(parseFloat(cupom.desconto), valorTotal) : 0;
-        const valorFinal  = parseFloat((valorTotal - desconto).toFixed(2));
+        const desconto = cupom ? Math.min(parseFloat(cupom.desconto), valorTotal) : 0;
+        const valorFinal = parseFloat((valorTotal - desconto).toFixed(2));
 
-        // 3. Cria o pedido mestre
-        // MELHORIA: registra cupom_id e desconto_aplicado para auditoria
+        // Cria o pedido retornando o novo codigo_rastreio (UUID)
         const { rows: pedidoRows } = await client.query(
             `INSERT INTO pedidos
                 (cliente_id, valor_total, status, cupom_id, desconto_aplicado)
              VALUES ($1, $2, 'pagamento_pendente', $3, $4)
-             RETURNING *`,
+             RETURNING id, codigo_rastreio, valor_total, status, criado_em`, // Retornamos o UUID
             [clienteId, valorFinal, cupom?.id || null, desconto]
         );
         const novoPedido = pedidoRows[0];
 
-        // 4. Insere itens e desconta estoque atomicamente
         for (const item of itensValidados) {
             await client.query(
                 `INSERT INTO itens_pedido
-                    (pedido_id, produto_id, quantidade, preco_no_momento_da_compra)
-                 VALUES ($1, $2, $3, $4)`,
-                [novoPedido.id, item.produto_id, item.quantidade, item.preco_no_momento_da_compra]
+                    (pedido_id, produto_id, produto_variante_id, quantidade, preco_no_momento_da_compra)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [novoPedido.id, item.produto_id, item.produto_variante_id, item.quantidade, item.preco_no_momento_da_compra]
             );
 
+            // Reduz estoque (no futuro, se tiver variante_id, reduziremos da tabela de variantes)
             await client.query(
                 `UPDATE produtos
                  SET quantidade_estoque = quantidade_estoque - $1
@@ -102,9 +100,6 @@ const create = async (clienteId, cartItems, cupom = null) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────
-// addPixInfo — salva dados do PIX gerado pelo Mercado Pago
-// ─────────────────────────────────────────────────────────────────
 const addPixInfo = async (pedidoId, pixCopyPaste, mercadoPagoId, qrCodeBase64) => {
     await db.query(
         `UPDATE pedidos
@@ -117,8 +112,7 @@ const addPixInfo = async (pedidoId, pixCopyPaste, mercadoPagoId, qrCodeBase64) =
 };
 
 // ─────────────────────────────────────────────────────────────────
-// findByClient — pedidos do cliente com paginação
-// MELHORIA: adicionada paginação para clientes com muitos pedidos
+// findByClient — Agora traz o codigo_rastreio (UUID)
 // ─────────────────────────────────────────────────────────────────
 const findByClient = async (clienteId, search = '', page = 1, limit = 10) => {
     const offset = (page - 1) * limit;
@@ -127,10 +121,10 @@ const findByClient = async (clienteId, search = '', page = 1, limit = 10) => {
 
     if (search && search.trim()) {
         params.push('%' + search.trim() + '%');
-        whereExtra = ` AND (p.id::text ILIKE $${params.length} OR pr.nome ILIKE $${params.length})`;
+        // Agora busca pelo UUID rastreio também
+        whereExtra = ` AND (p.codigo_rastreio::text ILIKE $${params.length} OR pr.nome ILIKE $${params.length})`;
     }
 
-    // Contagem total para paginação
     const countQuery = `
         SELECT COUNT(DISTINCT p.id) AS total
         FROM pedidos p
@@ -143,6 +137,7 @@ const findByClient = async (clienteId, search = '', page = 1, limit = 10) => {
     const dataQuery = `
         SELECT
             p.id,
+            p.codigo_rastreio, -- <<< UUID do Pedido
             p.valor_total,
             p.status,
             p.criado_em,
@@ -166,16 +161,13 @@ const findByClient = async (clienteId, search = '', page = 1, limit = 10) => {
     ]);
 
     return {
-        pedidos:     dataResult.rows,
-        total:       parseInt(countResult.rows[0].total, 10),
-        totalPages:  Math.ceil(parseInt(countResult.rows[0].total, 10) / limit),
+        pedidos: dataResult.rows,
+        total: parseInt(countResult.rows[0].total, 10),
+        totalPages: Math.ceil(parseInt(countResult.rows[0].total, 10) / limit),
         currentPage: parseInt(page, 10),
     };
 };
 
-// ─────────────────────────────────────────────────────────────────
-// findAll — todos os pedidos (admin) com paginação e busca
-// ─────────────────────────────────────────────────────────────────
 const findAll = async (page = 1, limit = 20, search = '') => {
     const offset = (page - 1) * limit;
     const params = [limit, offset];
@@ -186,13 +178,14 @@ const findAll = async (page = 1, limit = 20, search = '') => {
         whereClause = `WHERE (
             c.nome    ILIKE $${params.length} OR
             c.email   ILIKE $${params.length} OR
-            p.id::text ILIKE $${params.length}
+            p.codigo_rastreio::text ILIKE $${params.length}
         )`;
     }
 
     const { rows } = await db.query(
         `SELECT
             p.id,
+            p.codigo_rastreio,
             p.valor_total,
             p.desconto_aplicado,
             p.status,
@@ -209,9 +202,6 @@ const findAll = async (page = 1, limit = 20, search = '') => {
     return rows;
 };
 
-// ─────────────────────────────────────────────────────────────────
-// findByIdAndClientId — detalhe de um pedido (cliente)
-// ─────────────────────────────────────────────────────────────────
 const findByIdAndClientId = async (orderId, clienteId) => {
     const { rows: pedidoRows } = await db.query(
         'SELECT * FROM pedidos WHERE id = $1 AND cliente_id = $2',
@@ -235,10 +225,6 @@ const findByIdAndClientId = async (orderId, clienteId) => {
     return { pedido: pedidoRows[0], itens: itemsRows };
 };
 
-// ─────────────────────────────────────────────────────────────────
-// updateStatusByMpId — atualiza status via webhook do Mercado Pago
-// Devolve estoque se o pagamento foi cancelado/expirado
-// ─────────────────────────────────────────────────────────────────
 const updateStatusByMpId = async (mercadoPagoId, novoStatus) => {
     const client = await db.connect();
     try {
@@ -252,7 +238,6 @@ const updateStatusByMpId = async (mercadoPagoId, novoStatus) => {
         );
         const pedido = rows[0];
 
-        // Devolve estoque em pagamentos cancelados ou expirados
         if (pedido && ['cancelado', 'expirado', 'recusado'].includes(novoStatus)) {
             await _devolverEstoque(client, pedido.id);
         }
@@ -267,10 +252,6 @@ const updateStatusByMpId = async (mercadoPagoId, novoStatus) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────
-// updateStatusById — atualiza status pelo admin
-// Devolve estoque ao cancelar pedido pago ou em separação
-// ─────────────────────────────────────────────────────────────────
 const updateStatusById = async (pedidoId, novoStatus) => {
     const client = await db.connect();
     try {
@@ -288,7 +269,6 @@ const updateStatusById = async (pedidoId, novoStatus) => {
         );
         const pedido = rows[0];
 
-        // Devolve estoque se o pedido foi cancelado enquanto já estava pago ou em separação
         const statusQueDevolvemEstoque = ['pago', 'em_separacao'];
         if (novoStatus === 'cancelado' && statusQueDevolvemEstoque.includes(atual[0].status)) {
             await _devolverEstoque(client, pedidoId);
@@ -304,22 +284,29 @@ const updateStatusById = async (pedidoId, novoStatus) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────
-// _devolverEstoque — helper interno (não exportado)
-// Incrementa o estoque dos itens de um pedido cancelado
-// ─────────────────────────────────────────────────────────────────
 const _devolverEstoque = async (client, pedidoId) => {
+    // Agora temos que estar preparados para devolver o estoque pra variante, caso exista
     const { rows: itens } = await client.query(
-        'SELECT produto_id, quantidade FROM itens_pedido WHERE pedido_id = $1',
+        'SELECT produto_id, produto_variante_id, quantidade FROM itens_pedido WHERE pedido_id = $1',
         [pedidoId]
     );
+
     for (const item of itens) {
-        await client.query(
-            `UPDATE produtos
-             SET quantidade_estoque = quantidade_estoque + $1
-             WHERE id = $2`,
-            [item.quantidade, item.produto_id]
-        );
+        if (item.produto_variante_id) {
+            await client.query(
+                `UPDATE produto_variantes
+                 SET quantidade_estoque = quantidade_estoque + $1
+                 WHERE id = $2`,
+                [item.quantidade, item.produto_variante_id]
+            );
+        } else {
+            await client.query(
+                `UPDATE produtos
+                 SET quantidade_estoque = quantidade_estoque + $1
+                 WHERE id = $2`,
+                [item.quantidade, item.produto_id]
+            );
+        }
     }
 };
 

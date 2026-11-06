@@ -12,6 +12,22 @@ const findByProductId = async (produtoId) => {
     return rows;
 };
 
+// NOVO: Verifica se o cliente realmente comprou e pagou pelo produto
+const checkUserPurchasedProduct = async (clienteId, produtoId) => {
+    const { rows } = await db.query(`
+        SELECT 1
+        FROM itens_pedido ip
+        JOIN pedidos p ON p.id = ip.pedido_id
+        WHERE p.cliente_id = $1 
+          AND ip.produto_id = $2
+          -- Só conta se o pedido foi efetivamente pago ou já enviado/entregue
+          AND p.status IN ('pago', 'em_separacao', 'enviado', 'entregue')
+        LIMIT 1
+    `, [clienteId, produtoId]);
+    
+    return rows.length > 0;
+};
+
 // Função para criar uma nova avaliação
 const create = async ({ produto_id, cliente_id, nota, comentario }) => {
     const { rows } = await db.query(
@@ -23,5 +39,6 @@ const create = async ({ produto_id, cliente_id, nota, comentario }) => {
 
 module.exports = {
     findByProductId,
+    checkUserPurchasedProduct,
     create,
 };

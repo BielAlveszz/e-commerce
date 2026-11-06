@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CashCoin, BoxSeam, Receipt } from 'react-bootstrap-icons';
 import { apiFetch, API_URL } from '../services/Api';
+import { onImgError } from '../utils/imgPlaceholder';
 
 // ----------------------------------------------------------------
 // Gráfico de barras SVG — sem dependência externa
@@ -37,7 +38,7 @@ const SalesChart = ({ data, modo }) => {
   const W = 680, H = 200, PL = 48, PR = 16, PT = 16, PB = 36;
   const chartW = W - PL - PR;
   const chartH = H - PT - PB;
-  const barW   = Math.floor(chartW / diasCompletos.length) - 2;
+  const barW = Math.floor(chartW / diasCompletos.length) - 2;
 
   const fmt = (v) => modo === 'faturamento'
     ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v)
@@ -45,7 +46,7 @@ const SalesChart = ({ data, modo }) => {
 
   // Labels do eixo Y (4 linhas)
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map(p => ({
-    y:     PT + chartH * (1 - p),
+    y: PT + chartH * (1 - p),
     label: modo === 'faturamento'
       ? new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(maxValor * p)
       : String(Math.round(maxValor * p)),
@@ -75,9 +76,9 @@ const SalesChart = ({ data, modo }) => {
 
         {/* Barras */}
         {diasCompletos.map((d, i) => {
-          const barH  = d.valor === 0 ? 0 : Math.max(2, (d.valor / maxValor) * chartH);
-          const x     = PL + i * (chartW / diasCompletos.length) + 1;
-          const y     = PT + chartH - barH;
+          const barH = d.valor === 0 ? 0 : Math.max(2, (d.valor / maxValor) * chartH);
+          const x = PL + i * (chartW / diasCompletos.length) + 1;
+          const y = PT + chartH - barH;
           const isHov = tooltip?.i === i;
 
           return (
@@ -103,7 +104,7 @@ const SalesChart = ({ data, modo }) => {
         {/* Labels eixo X */}
         {xLabels.map((d, i) => {
           const idx = diasCompletos.findIndex(dd => dd.dia === d.dia);
-          const x   = PL + idx * (chartW / diasCompletos.length) + barW / 2;
+          const x = PL + idx * (chartW / diasCompletos.length) + barW / 2;
           return (
             <text key={i} x={x} y={H - 4} textAnchor="middle"
               style={{ fontSize: 10, fill: '#bbb', fontFamily: 'Inter, sans-serif' }}>
@@ -118,7 +119,7 @@ const SalesChart = ({ data, modo }) => {
         <div style={{
           position: 'fixed',
           left: tooltip.x + 12,
-          top:  tooltip.y - 40,
+          top: tooltip.y - 40,
           background: '#5a4a45',
           color: '#fff',
           padding: '6px 10px',
@@ -140,9 +141,9 @@ const SalesChart = ({ data, modo }) => {
 // Página principal
 // ----------------------------------------------------------------
 const AdminDashboard = () => {
-  const [stats, setStats]     = useState(null);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(false);
+  const [error, setError] = useState(false);
   const [chartModo, setChartModo] = useState('faturamento'); // 'faturamento' | 'pedidos'
 
   useEffect(() => {
@@ -276,7 +277,7 @@ const AdminDashboard = () => {
                             src={`${API_URL}/images/${prod.url_imagem}`}
                             alt={prod.nome}
                             style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8 }}
-                            onError={e => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/44'; }}
+                            onError={onImgError}
                           />
                           <span className="fw-500">{prod.nome}</span>
                         </div>

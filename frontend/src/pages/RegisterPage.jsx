@@ -9,6 +9,10 @@ const RegisterPage = () => {
   const [senha, setSenha] = useState('');
   const [telefone, setTelefone] = useState('');
   const [cpf, setCpf] = useState('');
+  
+  // NOVO: Estado para gerenciar a marcação da caixinha de LGPD
+  const [aceitouTermos, setAceitouTermos] = useState(false); 
+  
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,6 +24,13 @@ const RegisterPage = () => {
     setSuccess('');
     setLoading(true);
 
+    // NOVO: Validação no Frontend para evitar uma chamada desnecessária ao Backend
+    if (!aceitouTermos) {
+      setError('Você deve ler e aceitar os Termos de Uso e a Política de Privacidade para se cadastrar.');
+      setLoading(false);
+      return;
+    }
+
     // Remove máscara do CPF antes de enviar — backend espera 11 dígitos numéricos
     const cpfSomenteNumeros = cpf.replace(/\D/g, '');
 
@@ -27,9 +38,12 @@ const RegisterPage = () => {
       const response = await apiFetch('/api/clientes/registrar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, email, senha, telefone, cpf: cpfSomenteNumeros }),
+        // NOVO: Enviando o 'aceitouTermos' no corpo da requisição para o Zod validar
+        body: JSON.stringify({ nome, email, senha, telefone, cpf: cpfSomenteNumeros, aceitouTermos }),
       });
+      
       const data = await response.json();
+      
       if (!response.ok) {
         // Exibe erros detalhados do Zod quando disponíveis
         const mensagem = data.erros
@@ -37,6 +51,7 @@ const RegisterPage = () => {
           : data.message || 'Falha no cadastro';
         throw new Error(mensagem);
       }
+      
       setSuccess('Cadastro realizado com sucesso! Redirecionando para o login...');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
@@ -82,6 +97,21 @@ const RegisterPage = () => {
           <input type="tel" className="form-control" id="telefone" placeholder="(11) 99999-8888"
             value={telefone} onChange={(e) => setTelefone(e.target.value)} />
           <label htmlFor="telefone">Telefone (opcional)</label>
+        </div>
+
+        {/* NOVO: Bloco do Checkbox de Aceite dos Termos LGPD */}
+        <div className="mb-4 form-check text-start">
+          <input 
+            type="checkbox" 
+            className="form-check-input" 
+            id="aceitouTermos" 
+            checked={aceitouTermos}
+            onChange={(e) => setAceitouTermos(e.target.checked)}
+            required
+          />
+          <label className="form-check-label text-muted" htmlFor="aceitouTermos" style={{ fontSize: '0.9rem' }}>
+            Li e concordo com os <Link to="/termos-de-uso" target="_blank" className="text-decoration-underline">Termos de Uso</Link> e a <Link to="/politica-de-privacidade" target="_blank" className="text-decoration-underline">Política de Privacidade</Link> da Meby Cosméticos.
+          </label>
         </div>
 
         {error && <div className="alert alert-danger">{error}</div>}

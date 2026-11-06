@@ -17,15 +17,7 @@
 // Sanitização contra XSS — converte caracteres perigosos em entidades HTML.
 // Aplicada como middleware em todas as rotas de leitura e escrita.
 // ─────────────────────────────────────────────────────────────────
-const sanitizeString = (str) => {
-    return str
-        .replace(/&/g,  '&amp;')
-        .replace(/</g,  '&lt;')
-        .replace(/>/g,  '&gt;')
-        .replace(/"/g,  '&quot;')
-        .replace(/'/g,  '&#x27;')
-        .replace(/\//g, '&#x2F;');
-};
+const sanitizeString = (str) => str.trim();
 
 // ─────────────────────────────────────────────────────────────────
 // sanitizeInput — middleware que percorre body, query e params

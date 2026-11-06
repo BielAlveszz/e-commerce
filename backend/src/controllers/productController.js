@@ -3,58 +3,31 @@ const ProductModel   = require('../models/productModel');
 
 // ─────────────────────────────────────────────────────────────────
 // Schema Zod para criação e edição de produto
-// CORREÇÃO: antes o req.body era passado direto ao model sem
-// nenhuma validação, permitindo injeção de campos arbitrários
-// (mass assignment). Agora apenas os campos esperados passam.
+// AGORA COM SUPORTE A VARIANTES (Cores, Tamanhos, etc)
 // ─────────────────────────────────────────────────────────────────
 const produtoSchema = z.object({
-    nome: z
-        .string({ required_error: 'Nome é obrigatório.' })
-        .min(3, 'Nome deve ter no mínimo 3 caracteres.')
-        .max(255, 'Nome deve ter no máximo 255 caracteres.'),
+    nome: z.string({ required_error: 'Nome é obrigatório.' }).min(3).max(255),
+    descricao: z.string().max(5000).optional().nullable(),
+    preco: z.number({ required_error: 'Preço é obrigatório.' }).positive(),
+    preco_promocional: z.number().nonnegative().optional().nullable(),
+    quantidade_estoque: z.number({ required_error: 'Estoque é obrigatório.' }).int().nonnegative(),
+    sub_categoria_id: z.number({ required_error: 'Sub-categoria é obrigatória.' }).int().positive(),
+    url_imagem: z.string().max(255).optional().nullable(),
+    esta_ativo: z.boolean().optional().default(true),
+    
+    // NOVO: Array opcional para receber as variantes do Frontend Admin
+    variantes: z.array(
+        z.object({
+            id: z.number().optional(), // Se vier com ID, sabemos que é para atualizar
+            sku: z.string().max(50).optional().nullable(),
+            nome_variante: z.string({ required_error: 'O nome da variante é obrigatório (Ex: Vermelho).' }).min(1).max(100),
+            quantidade_estoque: z.number().int().nonnegative('Estoque da variante não pode ser negativo.'),
+            preco_adicional: z.number().nonnegative().optional().default(0),
+        })
+    ).optional().default([]),
 
-    descricao: z
-        .string()
-        .max(5000, 'Descrição muito longa.')
-        .optional()
-        .nullable(),
-
-    preco: z
-        .number({ required_error: 'Preço é obrigatório.', invalid_type_error: 'Preço deve ser um número.' })
-        .positive('Preço deve ser maior que zero.')
-        .multipleOf(0.01, 'Preço deve ter no máximo 2 casas decimais.'),
-
-    preco_promocional: z
-        .number({ invalid_type_error: 'Preço promocional deve ser um número.' })
-        .nonnegative('Preço promocional não pode ser negativo.')
-        .multipleOf(0.01)
-        .optional()
-        .nullable(),
-
-    quantidade_estoque: z
-        .number({ required_error: 'Estoque é obrigatório.', invalid_type_error: 'Estoque deve ser um número.' })
-        .int('Estoque deve ser um número inteiro.')
-        .nonnegative('Estoque não pode ser negativo.'),
-
-    sub_categoria_id: z
-        .number({ required_error: 'Sub-categoria é obrigatória.', invalid_type_error: 'sub_categoria_id deve ser um número.' })
-        .int()
-        .positive('Sub-categoria inválida.'),
-
-    url_imagem: z
-        .string()
-        .max(255)
-        .optional()
-        .nullable(),
-
-    esta_ativo: z
-        .boolean()
-        .optional()
-        .default(true),
 }).refine(
     (data) => {
-        // Se preco_promocional foi informado e é maior que zero,
-        // ele deve ser menor que o preco original
         if (data.preco_promocional && data.preco_promocional > 0) {
             return data.preco_promocional < data.preco;
         }
@@ -63,9 +36,6 @@ const produtoSchema = z.object({
     { message: 'Preço promocional deve ser menor que o preço original.', path: ['preco_promocional'] }
 );
 
-// ─────────────────────────────────────────────────────────────────
-// Helper: formata erros Zod em array simples para o frontend
-// ─────────────────────────────────────────────────────────────────
 const formatZodErrors = (zodError) =>
     zodError.errors.map((e) => `${e.path.join('.')}: ${e.message}`);
 
@@ -117,7 +87,6 @@ const getOnSaleProducts = async (req, res) => {
 const getBestsellerProducts = async (req, res) => {
     try {
         let data = await ProductModel.findBestsellers();
-        // Fallback: se não há vendas ainda, retorna os mais recentes
         if (!data.products || data.products.length === 0) {
             data = await ProductModel.findLatest();
         }
@@ -147,8 +116,6 @@ const getRelatedProducts = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────
 // POST /api/produtos (admin)
-// CORREÇÃO: valida e sanitiza com Zod antes de qualquer operação.
-// Apenas os campos do schema chegam ao model — nenhum campo extra.
 // ─────────────────────────────────────────────────────────────────
 const createProduct = async (req, res) => {
     try {
@@ -157,10 +124,7 @@ const createProduct = async (req, res) => {
         res.status(201).json(newProduct);
     } catch (err) {
         if (err instanceof z.ZodError) {
-            return res.status(400).json({
-                message: 'Dados inválidos.',
-                erros: formatZodErrors(err),
-            });
+            return res.status(400).json({ message: 'Dados inválidos.', erros: formatZodErrors(err) });
         }
         console.error('Erro ao criar produto:', err);
         res.status(500).json({ message: 'Erro ao criar produto.' });
@@ -169,7 +133,6 @@ const createProduct = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────
 // PUT /api/produtos/:id (admin)
-// CORREÇÃO: mesma validação Zod aplicada na edição.
 // ─────────────────────────────────────────────────────────────────
 const updateProduct = async (req, res) => {
     try {
@@ -181,10 +144,7 @@ const updateProduct = async (req, res) => {
         res.json(updatedProduct);
     } catch (err) {
         if (err instanceof z.ZodError) {
-            return res.status(400).json({
-                message: 'Dados inválidos.',
-                erros: formatZodErrors(err),
-            });
+            return res.status(400).json({ message: 'Dados inválidos.', erros: formatZodErrors(err) });
         }
         console.error('Erro ao atualizar produto:', err);
         res.status(500).json({ message: 'Erro ao atualizar produto.' });
@@ -209,16 +169,13 @@ const deleteProduct = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────
 // PATCH /api/produtos/:id/estoque (admin)
-// Ajuste rápido de estoque sem precisar editar o produto inteiro
 // ─────────────────────────────────────────────────────────────────
 const updateEstoque = async (req, res) => {
     const { id }       = req.params;
     const { quantidade } = req.body;
 
     if (typeof quantidade !== 'number' || !Number.isInteger(quantidade) || quantidade < 0) {
-        return res.status(400).json({
-            message: 'Quantidade deve ser um número inteiro não-negativo.',
-        });
+        return res.status(400).json({ message: 'Quantidade deve ser um número inteiro não-negativo.' });
     }
 
     try {

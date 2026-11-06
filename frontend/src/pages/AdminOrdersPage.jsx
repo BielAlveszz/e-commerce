@@ -15,15 +15,15 @@ const STATUS_CONFIG = {
     badge: 'bg-success',
     acoes: [
       { status: 'em_separacao', label: 'Iniciar Separação', variant: 'dark-custom' },
-      { status: 'cancelado',    label: 'Cancelar',          variant: 'outline-danger' },
+      { status: 'cancelado', label: 'Cancelar', variant: 'outline-danger' },
     ],
   },
   em_separacao: {
     label: 'Em Separação',
     badge: 'bg-info text-dark',
     acoes: [
-      { status: 'enviado',   label: 'Marcar como Enviado', variant: 'dark-custom' },
-      { status: 'cancelado', label: 'Cancelar',            variant: 'outline-danger' },
+      { status: 'enviado', label: 'Marcar como Enviado', variant: 'dark-custom' },
+      { status: 'cancelado', label: 'Cancelar', variant: 'outline-danger' },
     ],
   },
   enviado: {
@@ -67,7 +67,7 @@ const AcoesStatus = ({ pedido, onUpdated }) => {
   const handleAcao = async (novoStatus) => {
     setLoading(novoStatus);
     try {
-      const res  = await apiFetch(`/api/pedidos/${pedido.id}/status`, {
+      const res = await apiFetch(`/api/pedidos/${pedido.id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status: novoStatus }),
       });
@@ -102,12 +102,12 @@ const AcoesStatus = ({ pedido, onUpdated }) => {
 };
 
 const AdminOrdersPage = () => {
-  const [pedidos, setPedidos]     = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState(false);
+  const [pedidos, setPedidos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState('todos');
-  const [page, setPage]           = useState(1);
-  const [search, setSearch]       = useState('');
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const LIMIT = 20;
 
@@ -117,7 +117,7 @@ const AdminOrdersPage = () => {
     try {
       const params = new URLSearchParams({ page: p, limit: LIMIT });
       if (s.trim()) params.append('search', s.trim());
-      const res  = await apiFetch(`/api/pedidos?${params.toString()}`);
+      const res = await apiFetch(`/api/pedidos?${params.toString()}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       setPedidos(Array.isArray(data) ? data : []);
@@ -148,13 +148,13 @@ const AdminOrdersPage = () => {
     : pedidos.filter(p => p.status === filtroStatus);
 
   const statusFiltros = [
-    { value: 'todos',              label: 'Todos' },
+    { value: 'todos', label: 'Todos' },
     { value: 'pagamento_pendente', label: 'Pendentes' },
-    { value: 'pago',               label: 'Pagos' },
-    { value: 'em_separacao',       label: 'Em Separação' },
-    { value: 'enviado',            label: 'Enviados' },
-    { value: 'entregue',           label: 'Entregues' },
-    { value: 'cancelado',          label: 'Cancelados' },
+    { value: 'pago', label: 'Pagos' },
+    { value: 'em_separacao', label: 'Em Separação' },
+    { value: 'enviado', label: 'Enviados' },
+    { value: 'entregue', label: 'Entregues' },
+    { value: 'cancelado', label: 'Cancelados' },
   ];
 
   if (loading) return (
@@ -182,7 +182,14 @@ const AdminOrdersPage = () => {
           <li className="breadcrumb-item active">Pedidos</li>
         </ol>
       </nav>
-      <h1 className="mb-4">Gerenciar Pedidos</h1>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="mb-0">Gerenciar Pedidos</h1>
+
+        <Link to="/admin/pedidos/pdv" className="btn btn-success fw-bold shadow-sm">
+          <i className="bi bi-cart-plus me-2"></i> {/* Ícone opcional */}
+          Nova Venda Manual (PDV)
+        </Link>
+      </div>
 
       {/* Busca por cliente ou email */}
       <form onSubmit={handleSearch} className="mb-3" style={{ maxWidth: 480 }}>
